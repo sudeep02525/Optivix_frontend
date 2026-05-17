@@ -159,16 +159,16 @@ export default function WebsiteAnalyzer({ onClose }) {
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.92 }}
-        style={{ background: '#0d1117', border: '1px solid rgba(0,217,255,0.2)', borderRadius: 16, width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}
+        style={{ background: '#0a0e27', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 16, width: '100%', maxWidth: 860, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}
       >
         {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0,217,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#00d9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Globe style={{ width: 20, height: 20, color: 'white' }} />
             </div>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 800, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Website Analyzer</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>Website Analyzer</div>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Full SEO, performance & security audit + source code</div>
             </div>
           </div>
@@ -178,19 +178,19 @@ export default function WebsiteAnalyzer({ onClose }) {
         </div>
 
         {/* URL Input */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,217,255,0.08)', display: 'flex', gap: 8, flexShrink: 0 }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(99,102,241,0.08)', display: 'flex', gap: 8, flexShrink: 0 }}>
           <input
             value={url}
             onChange={e => setUrl(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !loading && analyze()}
             placeholder="Enter website URL (e.g., https://example.com)"
             disabled={loading}
-            style={{ flex: 1, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(0,217,255,0.2)', background: 'rgba(0,217,255,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none' }}
+            style={{ flex: 1, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none' }}
           />
           <button
             onClick={analyze}
             disabled={loading || !url.trim()}
-            style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: loading ? 'rgba(0,217,255,0.3)' : 'linear-gradient(135deg,#00d9ff,#b026ff)', color: 'white', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+            style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: loading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #00d9ff, #b026ff)', color: 'white', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
           >
             {loading ? `${progress}%` : 'Analyze'}
           </button>
@@ -200,7 +200,7 @@ export default function WebsiteAnalyzer({ onClose }) {
         {loading && (
           <div style={{ padding: '10px 20px', flexShrink: 0 }}>
             <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden', marginBottom: 6 }}>
-              <motion.div animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} style={{ height: '100%', background: 'linear-gradient(90deg,#00d9ff,#b026ff)', borderRadius: 99 }} />
+              <motion.div animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} style={{ height: '100%', background: 'linear-gradient(90deg, #00d9ff, #b026ff)', borderRadius: 99 }} />
             </div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{step}</div>
           </div>
@@ -226,7 +226,7 @@ export default function WebsiteAnalyzer({ onClose }) {
           {result && (
             <>
               {/* Tabs */}
-              <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(0,217,255,0.08)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(99,102,241,0.08)', flexShrink: 0 }}>
                 {[
                   { id: 'issues', label: `Issues (${result.issues.length})`, icon: AlertCircle },
                   { id: 'suggestions', label: `Suggestions (${result.suggestions.length})`, icon: TrendingUp },
@@ -290,9 +290,9 @@ export default function WebsiteAnalyzer({ onClose }) {
                 {activeTab === 'suggestions' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {result.suggestions.map((s, i) => (
-                      <div key={i} style={{ background: 'rgba(0,217,255,0.06)', border: '1px solid rgba(0,217,255,0.15)', borderRadius: 10, padding: '10px 14px' }}>
+                      <div key={i} style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 10, padding: '10px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 10, color: '#00d9ff', background: 'rgba(0,217,255,0.1)', border: '1px solid rgba(0,217,255,0.2)', padding: '2px 7px', borderRadius: 99 }}>{s.cat}</span>
+                          <span style={{ fontSize: 10, color: '#00d9ff', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)', padding: '2px 7px', borderRadius: 99 }}>{s.cat}</span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>{s.title}</span>
                         </div>
                         <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{s.desc}</p>
@@ -308,13 +308,13 @@ export default function WebsiteAnalyzer({ onClose }) {
                       <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{htmlCode.length.toLocaleString()} characters · {htmlCode.split('\n').length.toLocaleString()} lines</span>
                       <button
                         onClick={saveHTML}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(0,217,255,0.3)', background: 'rgba(0,217,255,0.1)', color: '#00d9ff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)', color: '#00d9ff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                       >
                         <Download style={{ width: 13, height: 13 }} />
                         Save as HTML
                       </button>
                     </div>
-                    <pre style={{ background: '#0d1117', border: '1px solid rgba(0,217,255,0.1)', borderRadius: 10, padding: 14, fontSize: 11, color: '#e6edf3', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflowY: 'auto', fontFamily: '"JetBrains Mono", "Fira Code", monospace', lineHeight: 1.6 }}>
+                    <pre style={{ background: '#0a0e27', border: '1px solid rgba(99,102,241,0.1)', borderRadius: 10, padding: 14, fontSize: 11, color: '#e6edf3', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflowY: 'auto', fontFamily: '"JetBrains Mono", "Fira Code", monospace', lineHeight: 1.6 }}>
                       {htmlCode}
                     </pre>
                   </div>
@@ -327,3 +327,14 @@ export default function WebsiteAnalyzer({ onClose }) {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+

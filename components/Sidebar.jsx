@@ -36,13 +36,13 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
   }
 
   const dark     = isDarkMode !== false
-  const bg       = dark ? '#0f1419'                : '#dde4ed'
-  const border   = dark ? 'rgba(0,217,255,0.1)'    : 'rgba(0,150,200,0.2)'
+  const bg       = dark ? '#18181b'                : '#dde4ed'
+  const border   = dark ? 'rgba(99,102,241,0.1)'    : 'rgba(0,150,200,0.2)'
   const textMain = dark ? '#e0e0e0'                : '#1a1a2e'
   const textMid  = dark ? 'rgba(224,224,224,0.65)' : 'rgba(26,26,46,0.65)'
   const textDim  = dark ? 'rgba(224,224,224,0.4)'  : 'rgba(26,26,46,0.4)'
-  const hoverBg  = dark ? 'rgba(0,217,255,0.08)'   : 'rgba(0,150,200,0.1)'
-  const activeBg = dark ? 'rgba(0,217,255,0.18)'   : 'rgba(0,150,200,0.2)'
+  const hoverBg  = dark ? 'rgba(99,102,241,0.08)'   : 'rgba(0,150,200,0.1)'
+  const activeBg = dark ? 'rgba(99,102,241,0.18)'   : 'rgba(0,150,200,0.2)'
 
   const tabs = [
     { id: 'explorer', icon: FileText,  label: 'Explorer'   },
@@ -161,7 +161,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
             <ChevronDown style={{ width: 12, height: 12, flexShrink: 0, transition: 'transform 0.15s', transform: expandedFolders.includes(item.id) ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
             {expandedFolders.includes(item.id)
               ? <FolderOpen style={{ width: 14, height: 14, flexShrink: 0, color: '#00d9ff' }} />
-              : <Folder    style={{ width: 14, height: 14, flexShrink: 0, color: 'rgba(0,217,255,0.5)' }} />
+              : <Folder    style={{ width: 14, height: 14, flexShrink: 0, color: 'rgba(99,102,241,0.5)' }} />
             }
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
           </button>
@@ -206,13 +206,13 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
           <div style={{ padding: '10px 8px' }}>
             {!folderOpened ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 12px', textAlign: 'center' }}>
-                <Folder style={{ width: 48, height: 48, color: 'rgba(0,217,255,0.3)', marginBottom: 12 }} />
+                <Folder style={{ width: 48, height: 48, color: 'rgba(99,102,241,0.3)', marginBottom: 12 }} />
                 <p style={{ fontSize: 12, fontWeight: 600, color: textMid, marginBottom: 6 }}>You have not yet opened a folder</p>
                 <p style={{ fontSize: 11, color: textDim, marginBottom: 14, lineHeight: 1.5 }}>Open a folder to see its files here.</p>
                 <button
                   onClick={handleOpenFolder}
                   disabled={loading}
-                  style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(0,217,255,0.3)', background: 'rgba(0,217,255,0.1)', color: '#00d9ff', fontSize: 12, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
+                  style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)', color: '#00d9ff', fontSize: 12, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
                 >
                   {loading ? 'Loading...' : 'Open Folder'}
                 </button>
@@ -235,7 +235,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
 
         {activeTab === 'search' && (
           <div style={{ padding: 12 }}>
-            <input type="text" placeholder="Search files..." style={{ width: '100%', padding: '7px 10px', borderRadius: 8, fontSize: 12, background: dark ? 'rgba(0,217,255,0.08)' : 'rgba(0,150,200,0.1)', border: `1px solid ${border}`, color: textMain, outline: 'none', boxSizing: 'border-box' }} />
+            <input type="text" placeholder="Search files..." style={{ width: '100%', padding: '7px 10px', borderRadius: 8, fontSize: 12, background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)', border: `1px solid ${border}`, color: textMain, outline: 'none', boxSizing: 'border-box' }} />
             <div style={{ marginTop: 12, fontSize: 11, color: textDim, textAlign: 'center' }}>No results</div>
           </div>
         )}
@@ -243,7 +243,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
         {activeTab === 'scanner' && (
           <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ fontSize: 11, color: textDim, marginBottom: 4 }}>Open a file and the AI panel will automatically scan it for bugs, security issues, and performance problems.</div>
-            <div style={{ padding: 10, borderRadius: 8, background: 'rgba(0,217,255,0.06)', border: '1px solid rgba(0,217,255,0.15)', fontSize: 11, color: textMid }}>
+            <div style={{ padding: 10, borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 11, color: textMid }}>
               💡 Tip: Click <strong style={{ color: '#00d9ff' }}>Fix</strong> in the top bar to auto-fix bugs or SEO issues in the current file.
             </div>
           </div>
@@ -269,7 +269,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Avatar */}
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg,#00d9ff,#b026ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700, color: 'white' }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#00d9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700, color: 'white' }}>
               {user.name?.charAt(0).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -298,4 +298,14 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
 

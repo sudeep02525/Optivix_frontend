@@ -194,19 +194,6 @@ const IDEPage = () => {
     document.body.classList.toggle('light-mode', !isDarkMode)
   }, [isDarkMode])
 
-  // Show loading while checking auth
-  if (!authChecked) {
-    return (
-      <div style={{ height: '100vh', background: '#0a0e27', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid rgba(0,217,255,0.2)', borderTopColor: '#00d9ff', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading Optivix...</p>
-        </div>
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      </div>
-    )
-  }
-
   // Ctrl+S to save
   useEffect(() => {
     const onKey = async (e) => {
@@ -228,6 +215,19 @@ const IDEPage = () => {
       setSaveStatus('saved')
     } catch { setSaveStatus('error') }
     setTimeout(() => setSaveStatus(''), 2000)
+  }
+
+  // Show loading while checking auth - AFTER all hooks
+  if (!authChecked) {
+    return (
+      <div style={{ height: '100vh', background: '#0a0e27', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#00d9ff', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading Optivix...</p>
+        </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    )
   }
 
   const handleFileSelect = (fileName, fileContent, fileHandle) => {
@@ -285,8 +285,8 @@ const IDEPage = () => {
 
   // ── Theme colors ───────────────────────────────────────────────────────────
   const dark    = isDarkMode
-  const topBg   = dark ? '#0f1419' : '#dde3ea'
-  const topBdr  = dark ? 'rgba(0,217,255,0.1)' : 'rgba(0,150,200,0.2)'
+  const topBg   = dark ? '#18181b' : '#dde3ea'
+  const topBdr  = dark ? 'rgba(99,102,241,0.1)' : 'rgba(0,150,200,0.2)'
   const rootBg  = dark ? '#0a0e27' : '#f0f4f8'
   const textCol = dark ? '#e0e0e0' : '#1a1a2e'
   const textDim = dark ? 'rgba(224,224,224,0.5)' : 'rgba(26,26,46,0.5)'
@@ -300,10 +300,10 @@ const IDEPage = () => {
         {/* Left: Logo + file */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 6, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 24, height: 24, borderRadius: 6, background: '#00d9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Zap style={{ width: 14, height: 14, color: 'white' }} />
             </div>
-            <span style={{ fontWeight: 800, fontSize: 14, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Optivix</span>
+            <span style={{ fontWeight: 800, fontSize: 14, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>Optivix</span>
           </div>
 
           {selectedFile && (
@@ -333,7 +333,7 @@ const IDEPage = () => {
           {/* Analyze Website */}
           <button
             onClick={() => setShowWebsiteAnalyzer(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.35)', background: 'rgba(34,197,94,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(139,92,246,0.35)', background: 'rgba(139,92,246,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
             <Globe style={{ width: 14, height: 14 }} />
             Analyze Website
@@ -344,7 +344,7 @@ const IDEPage = () => {
             <button
               onClick={() => setShowFixMenu(!showFixMenu)}
               disabled={isFixing}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#00d9ff,#b026ff)', color: 'white', fontSize: 12, fontWeight: 700, cursor: isFixing ? 'not-allowed' : 'pointer', opacity: isFixing ? 0.6 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: '#00d9ff', color: 'white', fontSize: 12, fontWeight: 700, cursor: isFixing ? 'not-allowed' : 'pointer', opacity: isFixing ? 0.6 : 1 }}
             >
               {isFixing ? (
                 <><Loader style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /><span>Fixing... {fixProgress}%</span></>
@@ -361,12 +361,12 @@ const IDEPage = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  style={{ position: 'absolute', top: '110%', right: 0, zIndex: 100, background: dark ? '#0f1419' : '#e8edf5', border: `1px solid ${topBdr}`, borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                  style={{ position: 'absolute', top: '110%', right: 0, zIndex: 100, background: dark ? '#18181b' : '#e8edf5', border: `1px solid ${topBdr}`, borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
                 >
                   <button
                     onClick={() => runFix('bugs')}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', color: textCol, fontSize: 13, textAlign: 'left', borderBottom: `1px solid ${topBdr}` }}
-                    onMouseEnter={e => e.currentTarget.style.background = dark ? 'rgba(0,217,255,0.08)' : 'rgba(0,150,200,0.1)'}
+                    onMouseEnter={e => e.currentTarget.style.background = dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'none'}
                   >
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -381,10 +381,10 @@ const IDEPage = () => {
                   <button
                     onClick={() => runFix('seo')}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', color: textCol, fontSize: 13, textAlign: 'left' }}
-                    onMouseEnter={e => e.currentTarget.style.background = dark ? 'rgba(0,217,255,0.08)' : 'rgba(0,150,200,0.1)'}
+                    onMouseEnter={e => e.currentTarget.style.background = dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'none'}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <Search style={{ width: 16, height: 16, color: '#4ade80' }} />
                     </div>
                     <div>
@@ -447,15 +447,15 @@ const IDEPage = () => {
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.85, opacity: 0 }}
-              style={{ background: '#0f1419', border: '1px solid rgba(0,217,255,0.3)', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+              style={{ background: '#18181b', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-                  style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid rgba(0,217,255,0.2)', borderTopColor: '#00d9ff', marginBottom: 12 }}
+                  style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#00d9ff', marginBottom: 12 }}
                 />
-                <p style={{ fontSize: 15, fontWeight: 700, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>
                   AI is fixing your code...
                 </p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{fixProgress}% Complete</p>
@@ -466,7 +466,7 @@ const IDEPage = () => {
                 <motion.div
                   animate={{ width: `${fixProgress}%` }}
                   transition={{ duration: 0.3 }}
-                  style={{ height: '100%', background: 'linear-gradient(90deg,#00d9ff,#b026ff)', borderRadius: 99 }}
+                  style={{ height: '100%', background: 'linear-gradient(90deg, #00d9ff, #b026ff)', borderRadius: 99 }}
                 />
               </div>
 
@@ -477,7 +477,7 @@ const IDEPage = () => {
                     key={i}
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
-                    style={{ fontSize: 11, color: line === '' ? 'transparent' : line.startsWith('──') ? 'rgba(0,217,255,0.6)' : 'rgba(255,255,255,0.7)', fontFamily: 'monospace', marginBottom: 2, borderTop: line.startsWith('──') ? '1px solid rgba(0,217,255,0.15)' : 'none', paddingTop: line.startsWith('──') ? 6 : 0 }}
+                    style={{ fontSize: 11, color: line === '' ? 'transparent' : line.startsWith('──') ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.7)', fontFamily: 'monospace', marginBottom: 2, borderTop: line.startsWith('──') ? '1px solid rgba(99,102,241,0.15)' : 'none', paddingTop: line.startsWith('──') ? 6 : 0 }}
                   >
                     {line || ' '}
                   </motion.div>
@@ -504,4 +504,15 @@ const IDEPage = () => {
 }
 
 export default IDEPage
+
+
+
+
+
+
+
+
+
+
+
 

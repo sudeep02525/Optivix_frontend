@@ -1,0 +1,4 @@
+components/**/*.jsx
+app/**/*.jsx
+*.jsx
+*.tsx

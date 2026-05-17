@@ -45,21 +45,21 @@ export default function AuthPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0e27', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       {/* Background blobs */}
-      <div style={{ position: 'fixed', top: '10%', left: '10%', width: 300, height: 300, background: 'rgba(0,217,255,0.15)', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'fixed', bottom: '10%', right: '10%', width: 300, height: 300, background: 'rgba(176,38,255,0.15)', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'fixed', top: '10%', left: '10%', width: 300, height: 300, background: 'rgba(99,102,241,0.15)', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'fixed', bottom: '10%', right: '10%', width: 300, height: 300, background: 'rgba(139,92,246,0.15)', borderRadius: '50%', filter: 'blur(80px)', pointerEvents: 'none' }} />
 
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        style={{ width: '100%', maxWidth: 420, background: 'rgba(15,20,25,0.85)', border: '1px solid rgba(0,217,255,0.2)', borderRadius: 20, padding: 36, backdropFilter: 'blur(20px)', position: 'relative', zIndex: 1 }}
+        style={{ width: '100%', maxWidth: 420, background: 'rgba(15,20,25,0.85)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 20, padding: 36, backdropFilter: 'blur(20px)', position: 'relative', zIndex: 1 }}
       >
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32, justifyContent: 'center' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: '#00d9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Zap style={{ width: 22, height: 22, color: 'white' }} />
           </div>
-          <span style={{ fontSize: 22, fontWeight: 900, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Optivix</span>
+          <span style={{ fontSize: 22, fontWeight: 900, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>Optivix</span>
         </div>
 
         {/* Tab switcher */}
@@ -68,7 +68,7 @@ export default function AuthPage() {
             <button
               key={m}
               onClick={() => { setMode(m); setError('') }}
-              style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, transition: 'all 0.2s', background: mode === m ? 'linear-gradient(135deg,#00d9ff22,#b026ff22)' : 'transparent', color: mode === m ? '#00d9ff' : 'rgba(255,255,255,0.4)', boxShadow: mode === m ? 'inset 0 0 0 1px rgba(0,217,255,0.3)' : 'none' }}
+              style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, transition: 'all 0.2s', background: mode === m ? 'linear-gradient(135deg,#00d9ff22,#b026ff22)' : 'transparent', color: mode === m ? '#00d9ff' : 'rgba(255,255,255,0.4)', boxShadow: mode === m ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none' }}
             >
               {m === 'login' ? 'Sign In' : 'Sign Up'}
             </button>
@@ -92,7 +92,7 @@ export default function AuthPage() {
                     onChange={e => setName(e.target.value)}
                     placeholder="John Doe"
                     required={mode === 'register'}
-                    style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, border: '1px solid rgba(0,217,255,0.2)', background: 'rgba(0,217,255,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
               </motion.div>
@@ -109,7 +109,7 @@ export default function AuthPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, border: '1px solid rgba(0,217,255,0.2)', background: 'rgba(0,217,255,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
           </div>
@@ -124,7 +124,7 @@ export default function AuthPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Min. 6 characters"
                 required
-                style={{ width: '100%', padding: '10px 40px 10px 36px', borderRadius: 10, border: '1px solid rgba(0,217,255,0.2)', background: 'rgba(0,217,255,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '10px 40px 10px 36px', borderRadius: 10, border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
               />
               <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex' }}>
                 {showPass ? <EyeOff style={{ width: 15, height: 15 }} /> : <Eye style={{ width: 15, height: 15 }} />}
@@ -141,7 +141,7 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            style={{ marginTop: 4, padding: '12px', borderRadius: 12, border: 'none', background: loading ? 'rgba(0,217,255,0.3)' : 'linear-gradient(135deg,#00d9ff,#b026ff)', color: 'white', fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            style={{ marginTop: 4, padding: '12px', borderRadius: 12, border: 'none', background: loading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #00d9ff, #b026ff)', color: 'white', fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
             {loading ? (
               <><Loader style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />Processing...</>
@@ -163,4 +163,15 @@ export default function AuthPage() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
 

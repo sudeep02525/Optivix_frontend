@@ -1,0 +1,28 @@
+{
+  "tailwindCSS.emmetCompletions": false,
+  "tailwindCSS.includeLanguages": {},
+  "tailwindCSS.validate": false,
+  "tailwindCSS.showPixelEquivalents": false,
+  "tailwindCSS.experimental.classRegex": [],
+  "tailwindCSS.files.exclude": ["**/*"],
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+  "editor.quickSuggestions": {
+    "strings": false
+  },
+  "editor.suggest.showWords": false,
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {}
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode", 
+    "editor.formatOnSave": false,
+    "editor.codeActionsOnSave": {}
+  },
+  "files.exclude": {
+    "**/.tailwindcss": true
+  }
+}

@@ -17,11 +17,11 @@ export default function Console({ isDarkMode }) {
 
   const dark = isDarkMode !== false
 
-  const bg      = dark ? '#0f1419'           : '#e2e8f0'
-  const border  = dark ? 'rgba(0,217,255,0.1)' : 'rgba(0,150,200,0.2)'
+  const bg      = dark ? '#18181b'           : '#e2e8f0'
+  const border  = dark ? 'rgba(99,102,241,0.1)' : 'rgba(0,150,200,0.2)'
   const textMid = dark ? 'rgba(224,224,224,0.7)' : 'rgba(26,26,46,0.7)'
   const textDim = dark ? 'rgba(224,224,224,0.4)' : 'rgba(26,26,46,0.4)'
-  const hoverBg = dark ? 'rgba(0,217,255,0.05)'  : 'rgba(0,150,200,0.07)'
+  const hoverBg = dark ? 'rgba(99,102,241,0.05)'  : 'rgba(0,150,200,0.07)'
 
   const getIcon = (type) => {
     switch (type) {
@@ -115,4 +115,14 @@ export default function Console({ isDarkMode }) {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
 

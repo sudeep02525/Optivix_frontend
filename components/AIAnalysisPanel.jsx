@@ -98,15 +98,15 @@ export default function AIAnalysisPanel({ code, isHealing, isDarkMode }) {
   const dark = isDarkMode !== false
 
   // Colors based on mode
-  const panelBg   = dark ? '#0f1419'              : '#e8edf5'
+  const panelBg   = dark ? '#18181b'              : '#e8edf5'
   const headerBg  = dark ? 'rgba(15,20,25,0.8)'   : 'rgba(210,220,235,0.9)'
-  const border    = dark ? 'rgba(0,217,255,0.15)'  : 'rgba(0,150,200,0.25)'
-  const divider   = dark ? 'rgba(0,217,255,0.08)'  : 'rgba(0,150,200,0.15)'
+  const border    = dark ? 'rgba(99,102,241,0.15)'  : 'rgba(0,150,200,0.25)'
+  const divider   = dark ? 'rgba(99,102,241,0.08)'  : 'rgba(0,150,200,0.15)'
   const textMain  = dark ? '#e0e0e0'               : '#1a1a2e'
   const textMid   = dark ? 'rgba(224,224,224,0.65)': 'rgba(26,26,46,0.65)'
   const textDim   = dark ? 'rgba(224,224,224,0.4)' : 'rgba(26,26,46,0.4)'
-  const scoreBg1  = dark ? 'rgba(0,217,255,0.08)'  : 'rgba(0,150,200,0.1)'
-  const scoreBg2  = dark ? 'rgba(176,38,255,0.08)' : 'rgba(140,30,200,0.1)'
+  const scoreBg1  = dark ? 'rgba(99,102,241,0.08)'  : 'rgba(0,150,200,0.1)'
+  const scoreBg2  = dark ? 'rgba(139,92,246,0.08)' : 'rgba(140,30,200,0.1)'
   const barBg     = dark ? 'rgba(255,255,255,0.06)': 'rgba(0,0,0,0.08)'
   const fixBg     = dark ? 'rgba(0,0,0,0.25)'      : 'rgba(0,0,0,0.06)'
 
@@ -140,9 +140,9 @@ export default function AIAnalysisPanel({ code, isHealing, isDarkMode }) {
     return <Info style={{ width:14, height:14, color:c, flexShrink:0 }} />
   }
 
-  const healthGrad = healthScore >= 80 ? '#22c55e, #10b981'
-                   : healthScore >= 60 ? '#eab308, #f97316'
-                   : healthScore >= 40 ? '#f97316, #ef4444'
+  const healthGrad = healthScore >= 80 ? '#b026ff, #00d9ff'
+                   : healthScore >= 60 ? '#eab308, #00d9ff'
+                   : healthScore >= 40 ? '#00d9ff, #ef4444'
                    : '#dc2626, #ef4444'
 
   const healthLabel = healthScore >= 80 ? '✅ Good'
@@ -163,7 +163,7 @@ export default function AIAnalysisPanel({ code, isHealing, isDarkMode }) {
       <div style={{ padding: '10px 14px', borderBottom: `1px solid ${divider}`, background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Brain style={{ width: 15, height: 15, color: '#00d9ff' }} />
-          <span style={{ fontSize: 13, fontWeight: 700, background: 'linear-gradient(135deg,#00d9ff,#b026ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>
             AI Analysis
           </span>
         </div>
@@ -189,11 +189,11 @@ export default function AIAnalysisPanel({ code, isHealing, isDarkMode }) {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
-            <div style={{ padding: '8px 10px', borderRadius: 8, background: scoreBg1, border: `1px solid rgba(0,217,255,0.2)` }}>
+            <div style={{ padding: '8px 10px', borderRadius: 8, background: scoreBg1, border: `1px solid rgba(99,102,241,0.2)` }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#00d9ff' }}>{secScore}%</div>
               <div style={{ fontSize: 10, color: textDim }}>Security</div>
             </div>
-            <div style={{ padding: '8px 10px', borderRadius: 8, background: scoreBg2, border: `1px solid rgba(176,38,255,0.2)` }}>
+            <div style={{ padding: '8px 10px', borderRadius: 8, background: scoreBg2, border: `1px solid rgba(139,92,246,0.2)` }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#b026ff' }}>{perfScore}%</div>
               <div style={{ fontSize: 10, color: textDim }}>Performance</div>
             </div>
@@ -207,13 +207,13 @@ export default function AIAnalysisPanel({ code, isHealing, isDarkMode }) {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(0,217,255,0.2)', borderTopColor: '#00d9ff', marginBottom: 10 }}
+                style={{ width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#00d9ff', marginBottom: 10 }}
               />
               <span style={{ fontSize: 11, color: textDim }}>Analyzing code...</span>
             </div>
           ) : issues.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', textAlign: 'center' }}>
-              <CheckCircle style={{ width: 36, height: 36, color: '#22c55e', marginBottom: 10 }} />
+              <CheckCircle style={{ width: 36, height: 36, color: '#b026ff', marginBottom: 10 }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: '#4ade80' }}>No issues found!</span>
               <span style={{ fontSize: 11, color: textDim, marginTop: 4 }}>Your code looks great 👍</span>
             </div>
@@ -267,3 +267,14 @@ export default function AIAnalysisPanel({ code, isHealing, isDarkMode }) {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
