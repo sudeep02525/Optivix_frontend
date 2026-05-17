@@ -103,45 +103,41 @@ export default function FloatingCards() {
                   maxHeight: '12rem'
                 }}
                 onMouseEnter={(e) => {
-                  const hoverGlow = e.currentTarget.querySelector('.hover-glow')
-                  const hoverBorder = e.currentTarget.querySelector('.hover-border')
-                  const title = e.currentTarget.querySelector('.card-title')
-                  const indicator = e.currentTarget.querySelector('.bottom-indicator')
+                  const card = e.currentTarget
+                  const hoverGlow = card.querySelector('.hover-glow')
+                  const title = card.querySelector('.card-title')
+                  const indicator = card.querySelector('.bottom-indicator')
+                  
+                  // Apply hover effects directly to the card
+                  card.style.borderColor = 'rgba(255,255,255,0.1)'
+                  card.style.boxShadow = `0 0 30px ${c.bg}, 0 0 60px ${c.bg}`
                   
                   if (hoverGlow) hoverGlow.style.opacity = '1'
-                  if (hoverBorder) hoverBorder.style.borderColor = 'rgba(255,255,255,0.1)'
                   if (title) title.style.color = '#fff'
                   if (indicator) indicator.style.opacity = '1'
                 }}
                 onMouseLeave={(e) => {
-                  const hoverGlow = e.currentTarget.querySelector('.hover-glow')
-                  const hoverBorder = e.currentTarget.querySelector('.hover-border')
-                  const title = e.currentTarget.querySelector('.card-title')
-                  const indicator = e.currentTarget.querySelector('.bottom-indicator')
+                  const card = e.currentTarget
+                  const hoverGlow = card.querySelector('.hover-glow')
+                  const title = card.querySelector('.card-title')
+                  const indicator = card.querySelector('.bottom-indicator')
+                  
+                  // Remove hover effects
+                  card.style.borderColor = 'rgba(255,255,255,0.06)'
+                  card.style.boxShadow = 'none'
                   
                   if (hoverGlow) hoverGlow.style.opacity = '0'
-                  if (hoverBorder) hoverBorder.style.borderColor = 'transparent'
                   if (title) title.style.color = '#e0e0e0'
                   if (indicator) indicator.style.opacity = '0'
                 }}
               >
-                {/* Hover glow */}
+                {/* Hover glow - matches card border radius */}
                 <div 
                   className="hover-glow"
                   style={{
                     position: 'absolute', inset: 0, opacity: 0,
-                    transition: 'opacity 0.5s', borderRadius: '1.5rem',
+                    transition: 'opacity 0.5s', borderRadius: '1rem',
                     background: `radial-gradient(circle at 30% 30%, ${c.bg}, transparent 70%)`
-                  }} 
-                />
-
-                {/* Hover border */}
-                <div 
-                  className="hover-border"
-                  style={{
-                    position: 'absolute', inset: 0, borderRadius: '1rem',
-                    border: '1px solid transparent',
-                    transition: 'border-color 0.3s'
                   }} 
                 />
 
