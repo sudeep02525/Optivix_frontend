@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Zap, Eye, EyeOff, User, Mail, Lock, ArrowRight, Loader } from 'lucide-react'
 
-const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000') + '/api/auth'
+const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api/auth'
 
 export default function AuthPage() {
   const router = useRouter()
