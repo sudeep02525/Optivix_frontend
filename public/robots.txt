@@ -1,0 +1,14 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://optivix.vercel.app/sitemap.xml
+
+# Disallow admin/private pages (if any)
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin/
+
+# Crawl-delay (optional, for slower crawling)
+# Crawl-delay: 10

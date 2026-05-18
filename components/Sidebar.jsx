@@ -16,7 +16,7 @@ const getFileColor = (name) => {
   }
 }
 
-export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkMode }) {
+export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkMode, setIsDarkMode }) {
   const [expandedFolders, setExpandedFolders] = useState([])
   const [folderOpened, setFolderOpened] = useState(false)
   const [fileStructure, setFileStructure] = useState([])
@@ -185,20 +185,55 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
   ))
 
   return (
-    <div style={{ width: 220, minWidth: 220, display: 'flex', flexDirection: 'column', background: bg, borderRight: `1px solid ${border}`, overflow: 'hidden', flexShrink: 0, color: textMain }}>
-      {/* Tab Icons */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '8px', borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
+    <div style={{ display: 'flex', height: '100%', flexShrink: 0 }}>
+      {/* Tab Icons - Vertical Sidebar */}
+      <div style={{ width: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 0', background: bg, borderRight: `1px solid ${border}`, flexShrink: 0 }}>
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             title={tab.label}
-            style={{ padding: 7, borderRadius: 8, border: 'none', cursor: 'pointer', transition: 'all 0.15s', background: activeTab === tab.id ? activeBg : 'transparent', color: activeTab === tab.id ? '#00d9ff' : textDim }}
+            style={{ 
+              width: 40,
+              height: 40,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0, 
+              borderRadius: 8, 
+              border: 'none', 
+              cursor: 'pointer', 
+              transition: 'all 0.15s', 
+              background: activeTab === tab.id ? activeBg : 'transparent', 
+              color: activeTab === tab.id ? '#00d9ff' : textDim,
+              position: 'relative'
+            }}
+            onMouseEnter={e => {
+              if (activeTab !== tab.id) e.currentTarget.style.background = hoverBg
+            }}
+            onMouseLeave={e => {
+              if (activeTab !== tab.id) e.currentTarget.style.background = 'transparent'
+            }}
           >
-            <tab.icon style={{ width: 17, height: 17 }} />
+            <tab.icon style={{ width: 20, height: 20 }} />
+            {activeTab === tab.id && (
+              <div style={{
+                position: 'absolute',
+                left: 0,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 3,
+                height: 24,
+                background: '#00d9ff',
+                borderRadius: '0 3px 3px 0'
+              }} />
+            )}
           </button>
         ))}
       </div>
+
+      {/* Content Panel */}
+      <div style={{ width: 220, minWidth: 220, display: 'flex', flexDirection: 'column', background: bg, borderRight: `1px solid ${border}`, overflow: 'hidden', flexShrink: 0, color: textMain }}>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -235,23 +270,175 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
 
         {activeTab === 'search' && (
           <div style={{ padding: 12 }}>
-            <input type="text" placeholder="Search files..." style={{ width: '100%', padding: '7px 10px', borderRadius: 8, fontSize: 12, background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)', border: `1px solid ${border}`, color: textMain, outline: 'none', boxSizing: 'border-box' }} />
-            <div style={{ marginTop: 12, fontSize: 11, color: textDim, textAlign: 'center' }}>No results</div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: textDim, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>Search in Files</label>
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                style={{ 
+                  width: '100%', 
+                  padding: '8px 10px', 
+                  borderRadius: 8, 
+                  fontSize: 12, 
+                  background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)', 
+                  border: `1px solid ${border}`, 
+                  color: textMain, 
+                  outline: 'none', 
+                  boxSizing: 'border-box',
+                  marginBottom: 8
+                }} 
+              />
+              <input 
+                type="text" 
+                placeholder="Files to include (e.g., *.js)" 
+                style={{ 
+                  width: '100%', 
+                  padding: '7px 10px', 
+                  borderRadius: 8, 
+                  fontSize: 11, 
+                  background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)', 
+                  border: `1px solid ${border}`, 
+                  color: textMain, 
+                  outline: 'none', 
+                  boxSizing: 'border-box',
+                  marginBottom: 8
+                }} 
+              />
+              <button
+                style={{
+                  width: '100%',
+                  padding: '7px 12px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(99,102,241,0.3)',
+                  background: 'rgba(99,102,241,0.1)',
+                  color: '#00d9ff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Search
+              </button>
+            </div>
+            <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: dark ? 'rgba(99,102,241,0.06)' : 'rgba(0,150,200,0.08)', border: `1px solid ${border}`, textAlign: 'center' }}>
+              <Search style={{ width: 32, height: 32, color: textDim, margin: '0 auto 8px' }} />
+              <div style={{ fontSize: 11, color: textDim }}>No results yet</div>
+              <div style={{ fontSize: 10, color: textDim, marginTop: 4 }}>Enter search term above</div>
+            </div>
           </div>
         )}
 
         {activeTab === 'scanner' && (
           <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: 11, color: textDim, marginBottom: 4 }}>Open a file and the AI panel will automatically scan it for bugs, security issues, and performance problems.</div>
-            <div style={{ padding: 10, borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)', fontSize: 11, color: textMid }}>
-              💡 Tip: Click <strong style={{ color: '#00d9ff' }}>Fix</strong> in the top bar to auto-fix bugs or SEO issues in the current file.
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Zap style={{ width: 16, height: 16, color: '#00d9ff' }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: textMain }}>AI Scanner</span>
+              </div>
+              <div style={{ fontSize: 11, color: textDim, lineHeight: 1.5, marginBottom: 12 }}>
+                Open a file and the AI panel will automatically scan it for bugs, security issues, and performance problems.
+              </div>
+            </div>
+            
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: textMid, marginBottom: 6 }}>💡 Quick Tip</div>
+              <div style={{ fontSize: 11, color: textDim, lineHeight: 1.5 }}>
+                Click <strong style={{ color: '#00d9ff' }}>Fix</strong> in the top bar to auto-fix bugs or SEO issues in the current file.
+              </div>
+            </div>
+
+            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: textMid, marginBottom: 6 }}>🔍 What we check</div>
+              <div style={{ fontSize: 10, color: textDim, lineHeight: 1.6 }}>
+                • Security vulnerabilities<br/>
+                • Performance issues<br/>
+                • Code quality problems<br/>
+                • SEO optimization<br/>
+                • Accessibility issues
+              </div>
             </div>
           </div>
         )}
 
         {activeTab === 'settings' && (
           <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: textDim, textTransform: 'uppercase', letterSpacing: 1 }}>Settings</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Settings</div>
+            
+            {/* Theme Toggle */}
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: 'block', marginBottom: 8 }}>Appearance</label>
+              <div style={{ 
+                display: 'flex', 
+                gap: 8,
+                padding: 8,
+                borderRadius: 8,
+                background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)',
+                border: `1px solid ${border}`
+              }}>
+                <button
+                  onClick={() => setIsDarkMode && setIsDarkMode(false)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: !dark ? 'rgba(255,255,255,0.9)' : 'transparent',
+                    color: !dark ? '#1a1a2e' : textDim,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    boxShadow: !dark ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => {
+                    if (dark) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                  }}
+                  onMouseLeave={e => {
+                    if (dark) e.currentTarget.style.background = 'transparent'
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>☀️</span>
+                  Light
+                </button>
+                <button
+                  onClick={() => setIsDarkMode && setIsDarkMode(true)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: dark ? 'rgba(99,102,241,0.2)' : 'transparent',
+                    color: dark ? '#00d9ff' : textDim,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    boxShadow: dark ? '0 0 12px rgba(0,217,255,0.2)' : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => {
+                    if (!dark) e.currentTarget.style.background = 'rgba(0,0,0,0.05)'
+                  }}
+                  onMouseLeave={e => {
+                    if (!dark) e.currentTarget.style.background = 'transparent'
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>🌙</span>
+                  Dark
+                </button>
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: border }} />
+
+            {/* Other Settings */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: textMid }}>Auto-save on fix</label>
               <input type="checkbox" defaultChecked />
@@ -259,6 +446,14 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: textMid }}>Word wrap</label>
               <input type="checkbox" defaultChecked />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: textMid }}>Line numbers</label>
+              <input type="checkbox" defaultChecked />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: textMid }}>Minimap</label>
+              <input type="checkbox" />
             </div>
           </div>
         )}
@@ -295,6 +490,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }
