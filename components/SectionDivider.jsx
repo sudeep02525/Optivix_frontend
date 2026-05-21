@@ -33,7 +33,7 @@ export default function SectionDivider({ variant = 'glow' }) {
             key={i}
             style={{
               width: '0.375rem', height: '0.375rem', borderRadius: '9999px',
-              background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
+              background: '#00d9ff',
             }}
             animate={{ scale: [1, 1.5, 1], opacity: [0.4, 1, 0.4] }}
             transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}

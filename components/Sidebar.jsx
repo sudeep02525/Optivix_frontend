@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Search, Zap, Settings, ChevronDown, Plus, Folder, FolderOpen, File, AlertCircle, LogOut } from 'lucide-react'
+import { FileText, Search, Zap, Settings, ChevronDown, Plus, Folder, FolderOpen, File, AlertCircle, LogOut, Sun, Moon, LayoutDashboard } from 'lucide-react'
+import IDEDashboard from '@/components/IDEDashboard'
+import { useTheme } from '@/components/ThemeContext'
 
 const getFileColor = (name) => {
   const ext = name.split('.').pop()?.toLowerCase()
@@ -16,13 +18,18 @@ const getFileColor = (name) => {
   }
 }
 
-export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkMode, setIsDarkMode }) {
+export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitClone, analysisSnapshot, isFixing }) {
+  const { theme, toggleTheme } = useTheme()
   const [expandedFolders, setExpandedFolders] = useState([])
   const [folderOpened, setFolderOpened] = useState(false)
   const [fileStructure, setFileStructure] = useState([])
   const [selectedFile, setSelectedFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchGlob, setSearchGlob] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem('nexus_user')
@@ -31,23 +38,86 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
 
   const handleLogout = () => {
     localStorage.removeItem('nexus_token')
+    localStorage.removeItem('token')
     localStorage.removeItem('nexus_user')
     window.location.href = '/auth'
   }
 
-  const dark     = isDarkMode !== false
-  const bg       = dark ? '#18181b'                : '#dde4ed'
-  const border   = dark ? 'rgba(99,102,241,0.1)'    : 'rgba(0,150,200,0.2)'
-  const textMain = dark ? '#e0e0e0'                : '#1a1a2e'
-  const textMid  = dark ? 'rgba(224,224,224,0.65)' : 'rgba(26,26,46,0.65)'
-  const textDim  = dark ? 'rgba(224,224,224,0.4)'  : 'rgba(26,26,46,0.4)'
-  const hoverBg  = dark ? 'rgba(99,102,241,0.08)'   : 'rgba(0,150,200,0.1)'
-  const activeBg = dark ? 'rgba(99,102,241,0.18)'   : 'rgba(0,150,200,0.2)'
+  const flattenFiles = (items, out = []) => {
+    for (const item of items) {
+      if (item.type === 'file') out.push(item)
+      else if (item.children) flattenFiles(item.children, out)
+    }
+    return out
+  }
+
+  const globMatch = (name, pattern) => {
+    if (!pattern.trim()) return true
+    const p = pattern.trim().replace(/\./g, '\\.').replace(/\*/g, '.*')
+    try {
+      return new RegExp(`^${p}$`, 'i').test(name)
+    } catch {
+      return name.toLowerCase().includes(pattern.toLowerCase())
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      return
+    }
+    if (!folderOpened || fileStructure.length === 0) {
+      setSearchResults([])
+      return
+    }
+    setSearching(true)
+    const q = searchQuery.toLowerCase()
+    const files = flattenFiles(fileStructure)
+    const results = []
+    for (const item of files) {
+      if (!globMatch(item.name, searchGlob)) continue
+      try {
+        let content = ''
+        if (item.handle) {
+          const file = await item.handle.getFile()
+          content = await file.text()
+        } else if (item.file) {
+          content = await item.file.text()
+        } else continue
+        const lines = content.split('\n')
+        lines.forEach((line, idx) => {
+          if (line.toLowerCase().includes(q)) {
+            results.push({
+              id: `${item.id}-${idx}`,
+              file: item.name,
+              line: idx + 1,
+              preview: line.trim().slice(0, 120),
+              item,
+            })
+          }
+        })
+      } catch {
+        /* skip unreadable */
+      }
+    }
+    setSearchResults(results.slice(0, 50))
+    setSearching(false)
+  }
+
+  const dark = theme === 'dark'
+  const bg = 'var(--ide-surface)'
+  const border = 'var(--ide-border)'
+  const textMain = 'var(--ide-text)'
+  const textMid = 'var(--ide-text-muted)'
+  const textDim = 'var(--ide-text-dim)'
+  const hoverBg = 'var(--landing-accent-soft)'
+  const activeBg = 'rgba(var(--landing-accent-rgb), 0.15)'
+  const accent = 'var(--landing-accent)'
 
   const tabs = [
     { id: 'explorer', icon: FileText,  label: 'Explorer'   },
     { id: 'search',   icon: Search,    label: 'Search'     },
-    { id: 'scanner',  icon: Zap,       label: 'AI Scanner' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'settings', icon: Settings,  label: 'Settings'   },
   ]
 
@@ -73,7 +143,9 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
     try {
       if ('showDirectoryPicker' in window) {
         setLoading(true)
-        const dirHandle = await window.showDirectoryPicker()
+        const dirHandle = await window.showDirectoryPicker({
+          mode: 'readwrite' // ✅ Write permission request
+        })
         const children = await readDirectory(dirHandle)
         setFileStructure([{ id: 'root', name: dirHandle.name, type: 'folder', children, handle: dirHandle }])
         setExpandedFolders(['root'])
@@ -137,10 +209,15 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
           : await file.text()
       } else if (item.file) {
         content = await item.file.text()
+      } else {
+        content = `// File: ${item.name}\n// No content available`
       }
+      console.log('File content loaded:', item.name, content.substring(0, 100)) // Debug log
       if (onFileSelect) onFileSelect(item.name, content, item.handle || null)
     } catch (err) {
       console.error('File read error:', err)
+      const errorContent = `// Error reading file: ${item.name}\n// ${err.message}`
+      if (onFileSelect) onFileSelect(item.name, errorContent, null)
     }
   }
 
@@ -160,8 +237,8 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
           >
             <ChevronDown style={{ width: 12, height: 12, flexShrink: 0, transition: 'transform 0.15s', transform: expandedFolders.includes(item.id) ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
             {expandedFolders.includes(item.id)
-              ? <FolderOpen style={{ width: 14, height: 14, flexShrink: 0, color: '#00d9ff' }} />
-              : <Folder    style={{ width: 14, height: 14, flexShrink: 0, color: 'rgba(99,102,241,0.5)' }} />
+              ? <FolderOpen style={{ width: 14, height: 14, flexShrink: 0, color: '#5b9cf5' }} />
+              : <Folder    style={{ width: 14, height: 14, flexShrink: 0, color: 'rgba(91,156,245,0.5)' }} />
             }
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
           </button>
@@ -205,7 +282,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
               cursor: 'pointer', 
               transition: 'all 0.15s', 
               background: activeTab === tab.id ? activeBg : 'transparent', 
-              color: activeTab === tab.id ? '#00d9ff' : textDim,
+              color: activeTab === tab.id ? '#5b9cf5' : textDim,
               position: 'relative'
             }}
             onMouseEnter={e => {
@@ -224,7 +301,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
                 transform: 'translateY(-50%)',
                 width: 3,
                 height: 24,
-                background: '#00d9ff',
+                background: accent,
                 borderRadius: '0 3px 3px 0'
               }} />
             )}
@@ -241,17 +318,17 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
           <div style={{ padding: '10px 8px' }}>
             {!folderOpened ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 12px', textAlign: 'center' }}>
-                <Folder style={{ width: 48, height: 48, color: 'rgba(99,102,241,0.3)', marginBottom: 12 }} />
+                <Folder style={{ width: 48, height: 48, color: 'rgba(91,156,245,0.3)', marginBottom: 12 }} />
                 <p style={{ fontSize: 12, fontWeight: 600, color: textMid, marginBottom: 6 }}>You have not yet opened a folder</p>
                 <p style={{ fontSize: 11, color: textDim, marginBottom: 14, lineHeight: 1.5 }}>Open a folder to see its files here.</p>
                 <button
                   onClick={handleOpenFolder}
                   disabled={loading}
-                  style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)', color: '#00d9ff', fontSize: 12, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
+                  style={{ width: '100%', padding: '7px 12px', borderRadius: 8, border: '1px solid rgba(91,156,245,0.3)', background: 'rgba(91,156,245,0.1)', color: '#5b9cf5', fontSize: 12, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1 }}
                 >
                   {loading ? 'Loading...' : 'Open Folder'}
                 </button>
-                <button style={{ marginTop: 6, fontSize: 11, color: textDim, background: 'none', border: 'none', cursor: 'pointer' }}>Clone Repository</button>
+                <button type="button" onClick={onGitClone} style={{ marginTop: 6, fontSize: 11, color: textDim, background: 'none', border: 'none', cursor: 'pointer' }}>Clone Repository</button>
               </div>
             ) : (
               <>
@@ -274,13 +351,16 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
               <label style={{ fontSize: 10, fontWeight: 700, color: textDim, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>Search in Files</label>
               <input 
                 type="text" 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 placeholder="Search..." 
                 style={{ 
                   width: '100%', 
                   padding: '8px 10px', 
                   borderRadius: 8, 
                   fontSize: 12, 
-                  background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)', 
+                  background: dark ? 'rgba(91,156,245,0.08)' : 'rgba(0,150,200,0.1)', 
                   border: `1px solid ${border}`, 
                   color: textMain, 
                   outline: 'none', 
@@ -290,13 +370,15 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
               />
               <input 
                 type="text" 
+                value={searchGlob}
+                onChange={e => setSearchGlob(e.target.value)}
                 placeholder="Files to include (e.g., *.js)" 
                 style={{ 
                   width: '100%', 
                   padding: '7px 10px', 
                   borderRadius: 8, 
                   fontSize: 11, 
-                  background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)', 
+                  background: dark ? 'rgba(91,156,245,0.08)' : 'rgba(0,150,200,0.1)', 
                   border: `1px solid ${border}`, 
                   color: textMain, 
                   outline: 'none', 
@@ -305,59 +387,67 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
                 }} 
               />
               <button
+                type="button"
+                onClick={handleSearch}
+                disabled={searching || !folderOpened}
                 style={{
                   width: '100%',
                   padding: '7px 12px',
                   borderRadius: 8,
-                  border: '1px solid rgba(99,102,241,0.3)',
-                  background: 'rgba(99,102,241,0.1)',
-                  color: '#00d9ff',
+                  border: '1px solid rgba(91,156,245,0.3)',
+                  background: 'rgba(91,156,245,0.1)',
+                  color: '#5b9cf5',
                   fontSize: 12,
                   fontWeight: 600,
-                  cursor: 'pointer'
+                  cursor: searching || !folderOpened ? 'not-allowed' : 'pointer',
+                  opacity: searching || !folderOpened ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6
                 }}
               >
-                Search
+                <Search style={{ width: 14, height: 14 }} />
+                {searching ? 'Searching…' : 'Search'}
               </button>
             </div>
-            <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: dark ? 'rgba(99,102,241,0.06)' : 'rgba(0,150,200,0.08)', border: `1px solid ${border}`, textAlign: 'center' }}>
-              <Search style={{ width: 32, height: 32, color: textDim, margin: '0 auto 8px' }} />
-              <div style={{ fontSize: 11, color: textDim }}>No results yet</div>
-              <div style={{ fontSize: 10, color: textDim, marginTop: 4 }}>Enter search term above</div>
-            </div>
+            {!folderOpened ? (
+              <div style={{ marginTop: 8, padding: 12, borderRadius: 8, background: dark ? 'rgba(91,156,245,0.06)' : 'rgba(0,150,200,0.08)', border: `1px solid ${border}`, textAlign: 'center' }}>
+                <Folder style={{ width: 28, height: 28, color: textDim, margin: '0 auto 8px' }} />
+                <div style={{ fontSize: 11, color: textDim }}>Open a folder in Explorer first</div>
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div style={{ marginTop: 16, padding: 12, borderRadius: 8, background: dark ? 'rgba(91,156,245,0.06)' : 'rgba(0,150,200,0.08)', border: `1px solid ${border}`, textAlign: 'center' }}>
+                <Search style={{ width: 32, height: 32, color: textDim, margin: '0 auto 8px' }} />
+                <div style={{ fontSize: 11, color: textDim }}>{searchQuery ? 'No matches' : 'No results yet'}</div>
+                <div style={{ fontSize: 10, color: textDim, marginTop: 4 }}>Enter a term and press Search</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                <div style={{ fontSize: 10, color: textDim, marginBottom: 4 }}>{searchResults.length} match(es)</div>
+                {searchResults.map(r => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => handleFileClick(r.item)}
+                    style={{ width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: `1px solid ${border}`, background: dark ? 'rgba(91,156,245,0.06)' : 'rgba(0,150,200,0.06)', cursor: 'pointer', color: textMain }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#5b9cf5' }}>{r.file}:{r.line}</div>
+                    <div style={{ fontSize: 10, color: textDim, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.preview}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {activeTab === 'scanner' && (
-          <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <Zap style={{ width: 16, height: 16, color: '#00d9ff' }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: textMain }}>AI Scanner</span>
-              </div>
-              <div style={{ fontSize: 11, color: textDim, lineHeight: 1.5, marginBottom: 12 }}>
-                Open a file and the AI panel will automatically scan it for bugs, security issues, and performance problems.
-              </div>
-            </div>
-            
-            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: textMid, marginBottom: 6 }}>💡 Quick Tip</div>
-              <div style={{ fontSize: 11, color: textDim, lineHeight: 1.5 }}>
-                Click <strong style={{ color: '#00d9ff' }}>Fix</strong> in the top bar to auto-fix bugs or SEO issues in the current file.
-              </div>
-            </div>
-
-            <div style={{ padding: 12, borderRadius: 8, background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: textMid, marginBottom: 6 }}>🔍 What we check</div>
-              <div style={{ fontSize: 10, color: textDim, lineHeight: 1.6 }}>
-                • Security vulnerabilities<br/>
-                • Performance issues<br/>
-                • Code quality problems<br/>
-                • SEO optimization<br/>
-                • Accessibility issues
-              </div>
-            </div>
-          </div>
+        {activeTab === 'dashboard' && (
+          <IDEDashboard
+            healthScore={analysisSnapshot?.healthScore ?? 100}
+            issues={analysisSnapshot?.issues ?? []}
+            aiModel={analysisSnapshot?.aiModel}
+            isFixing={isFixing}
+          />
         )}
 
         {activeTab === 'settings' && (
@@ -372,11 +462,11 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
                 gap: 8,
                 padding: 8,
                 borderRadius: 8,
-                background: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)',
+                background: dark ? 'rgba(91,156,245,0.08)' : 'rgba(0,150,200,0.1)',
                 border: `1px solid ${border}`
               }}>
                 <button
-                  onClick={() => setIsDarkMode && setIsDarkMode(false)}
+                  onClick={() => theme !== 'light' && toggleTheme()}
                   style={{
                     flex: 1,
                     padding: '8px 12px',
@@ -401,18 +491,18 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
                     if (dark) e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>☀️</span>
+                  <Sun style={{ width: 16, height: 16, color: !dark ? '#f59e0b' : textDim }} />
                   Light
                 </button>
                 <button
-                  onClick={() => setIsDarkMode && setIsDarkMode(true)}
+                  onClick={() => theme !== 'dark' && toggleTheme()}
                   style={{
                     flex: 1,
                     padding: '8px 12px',
                     borderRadius: 6,
                     border: 'none',
-                    background: dark ? 'rgba(99,102,241,0.2)' : 'transparent',
-                    color: dark ? '#00d9ff' : textDim,
+                    background: dark ? 'rgba(91,156,245,0.2)' : 'transparent',
+                    color: dark ? '#5b9cf5' : textDim,
                     fontSize: 11,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -420,7 +510,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: 6,
-                    boxShadow: dark ? '0 0 12px rgba(0,217,255,0.2)' : 'none',
+                    boxShadow: dark ? 'none' : 'none',
                     transition: 'all 0.2s'
                   }}
                   onMouseEnter={e => {
@@ -430,7 +520,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
                     if (!dark) e.currentTarget.style.background = 'transparent'
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>🌙</span>
+                  <Moon style={{ width: 16, height: 16, color: dark ? '#5b9cf5' : textDim }} />
                   Dark
                 </button>
               </div>
@@ -464,7 +554,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Avatar */}
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#00d9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700, color: 'white' }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#0c0c0c' }}>
               {user.name?.charAt(0).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -486,7 +576,7 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, isDarkM
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
             <span style={{ fontSize: 11, color: textDim }}>Connected</span>
-            <a href="/auth" style={{ marginLeft: 'auto', fontSize: 11, color: '#00d9ff', textDecoration: 'none', fontWeight: 600 }}>Sign In</a>
+            <a href="/auth" style={{ marginLeft: 'auto', fontSize: 11, color: '#5b9cf5', textDecoration: 'none', fontWeight: 600 }}>Sign In</a>
           </div>
         )}
       </div>

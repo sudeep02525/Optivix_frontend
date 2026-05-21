@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" fill="none" role="img" aria-label="Optivix">
+  <defs>
+    <linearGradient id="ovx-g" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5b9cf5"/>
+      <stop offset="1" stop-color="#7eb3f7"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon -->
+  <rect x="4" y="4" width="40" height="40" rx="10" stroke="url(#ovx-g)" stroke-width="2" fill="none"/>
+  <path d="M24 13c-5.52 0-10 4.48-10 10 0 3.45 1.75 6.48 4.41 8.27" stroke="url(#ovx-g)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M29.41 31.27c2.66-1.79 4.41-4.82 4.41-8.27 0-5.52-4.48-10-10-10" stroke="url(#ovx-g)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <circle cx="24" cy="13" r="2.25" fill="#7eb3f7"/>
+  <circle cx="24" cy="24" r="3.5" fill="url(#ovx-g)"/>
+  <circle cx="35" cy="22" r="1.75" fill="#5b9cf5"/>
+  <!-- Wordmark -->
+  <text x="56" y="32" font-family="system-ui, 'Plus Jakarta Sans', sans-serif" font-size="22" font-weight="800" fill="#fafafa" letter-spacing="-0.03em">Optivix</text>
+</svg>

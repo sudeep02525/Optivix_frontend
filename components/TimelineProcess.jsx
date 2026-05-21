@@ -94,7 +94,7 @@ export default function TimelineProcess() {
           </div>
           <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 700, marginBottom: '1.25rem' }}>
             From{' '}
-            <span style={{ background: "linear-gradient(90deg, #00d9ff, #b026ff, #ff6bcb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <span style={{ color: '#00d9ff' }}>
               Problem to Solution
             </span>
           </h2>
@@ -126,7 +126,7 @@ export default function TimelineProcess() {
                   borderRadius: '1.25rem',
                   border: '1px solid rgba(255,255,255,0.08)',
                   overflow: 'hidden',
-                  background: 'linear-gradient(135deg, rgba(15,20,35,0.95), rgba(20,25,40,0.8))',
+                  background: 'rgba(15,20,35,0.95)',
                   backdropFilter: 'blur(16px)',
                   padding: '1.75rem 1.5rem',
                   display: 'flex',

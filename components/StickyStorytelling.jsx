@@ -3,55 +3,32 @@
 
 import { motion } from 'framer-motion'
 import { Code2, Brain, Zap, Rocket, Shield, Sparkles, TrendingUp, Users } from 'lucide-react'
+import SectionHeader from '@/components/SectionHeader'
 
 const stories = [
   { icon: Code2,      step: '01', title: 'The Problem',  description: 'Developers spend 30% of their time fixing bugs and security issues instead of building features that matter.', stat: '30%',  statLabel: 'time wasted on bugs',         color: '#f43f5e', bg: 'rgba(244,63,94,0.08)'   },
   { icon: Brain,      step: '02', title: 'The Insight',  description: 'AI can understand code patterns and predict issues before they become problems — at superhuman speed.',          stat: '10x',  statLabel: 'faster pattern recognition',  color: '#f59e0b', bg: 'rgba(245,158,11,0.08)'  },
-  { icon: Zap,        step: '03', title: 'The Solution', description: 'Optivix uses neural networks to analyze code in real-time and provide instant, context-aware fixes.',            stat: '<1ms', statLabel: 'detection speed',             color: '#00d9ff', bg: 'rgba(0,217,255,0.08)'   },
+  { icon: Zap,        step: '03', title: 'The Solution', description: 'Optivix uses neural networks to analyze code in real-time and provide instant, context-aware fixes.',            stat: '<1ms', statLabel: 'detection speed',             color: 'var(--landing-accent)', bg: 'rgba(var(--landing-accent-rgb),0.08)'   },
   { icon: Shield,     step: '04', title: 'The Security', description: 'Proactive vulnerability scanning catches threats before they reach production — zero false positives.',           stat: '99.9%',statLabel: 'threat prevention rate',      color: '#10b981', bg: 'rgba(16,185,129,0.08)'  },
-  { icon: Rocket,     step: '05', title: 'The Result',   description: 'Teams ship faster, with higher quality code and dramatically fewer production incidents.',                        stat: '40%',  statLabel: 'faster shipping',             color: '#a855f7', bg: 'rgba(168,85,247,0.08)'  },
+  { icon: Rocket,     step: '05', title: 'The Result',   description: 'Teams ship faster, with higher quality code and dramatically fewer production incidents.',                        stat: '40%',  statLabel: 'faster shipping',             color: 'var(--landing-accent)', bg: 'rgba(168,85,247,0.08)'  },
   { icon: TrendingUp, step: '06', title: 'The Impact',   description: 'Companies using Optivix see measurable improvements in developer productivity, code quality, and ROI.',          stat: '10x',  statLabel: 'return on investment',        color: '#6366f1', bg: 'rgba(99,102,241,0.08)'  },
 ]
 
 export default function StickyStorytelling() {
   return (
-    <section style={{ paddingTop: '6rem', paddingBottom: '6rem', paddingLeft: '1rem', paddingRight: '1rem' }}>
-      <div style={{ maxWidth: '80rem', margin: '0 auto' }}>
+    <section className="landing-section">
+      <div className="landing-container">
 
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
-          style={{ textAlign: 'center', marginBottom: '5rem' }}
-        >
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-            padding: '0.5rem 1rem', borderRadius: '9999px',
-            border: '1px solid rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.05)', marginBottom: '1.5rem'
-          }}>
-            <Sparkles style={{ width: '1rem', height: '1rem', color: '#22d3ee' }} />
-            <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#22d3ee' }}>The Optivix Story</span>
-          </div>
-          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 700, marginBottom: '1.25rem' }}>
-            From{' '}
-            <span style={{ background: "linear-gradient(90deg, #00d9ff, #b026ff, #ff6bcb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Problem to Solution
-            </span>
-          </h2>
-          <p style={{ fontSize: '1.125rem', color: '#9ca3af', maxWidth: '32rem', margin: '0 auto' }}>
-            The journey that led us to build the world&apos;s first self-healing IDE
-          </p>
-        </motion.div>
+        <SectionHeader
+          eyebrow="Story"
+          icon={Sparkles}
+          title="From"
+          accent="Problem to Solution"
+          description="The journey that led us to build the world's first self-healing IDE"
+        />
 
         {/* Story cards - Clean 3-column grid, 2 rows */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(3, 1fr)', 
-          gap: '1.25rem', 
-          marginBottom: '4rem' 
-        }}>
+        <div className="story-grid">
           {stories.map((s, i) => {
             const Icon = s.icon
             return (
@@ -66,16 +43,16 @@ export default function StickyStorytelling() {
                   position: 'relative', 
                   borderRadius: '1.25rem',
                   padding: '1.75rem 1.5rem', 
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border: '1px solid var(--landing-border)',
                   overflow: 'hidden', 
                   cursor: 'pointer',
-                  background: 'linear-gradient(135deg, rgba(15,20,35,0.95), rgba(20,25,40,0.8))',
+                  background: 'var(--landing-surface)',
                   backdropFilter: 'blur(16px)',
-                  minHeight: '260px',
+                  minHeight: 'min(260px, auto)',
                   display: 'flex',
                   flexDirection: 'column',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.2)'
+                  boxShadow: 'var(--landing-shadow-md)'
                 }}
                 onMouseEnter={(e) => { 
                   e.currentTarget.querySelector('.ss-glow').style.opacity = '1'
@@ -84,19 +61,19 @@ export default function StickyStorytelling() {
                 }}
                 onMouseLeave={(e) => { 
                   e.currentTarget.querySelector('.ss-glow').style.opacity = '0'
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
-                  e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.2)'
+                  e.currentTarget.style.borderColor = 'var(--landing-border)'
+                  e.currentTarget.style.boxShadow = 'var(--landing-shadow-md)'
                 }}
               >
                 <div className="ss-glow" style={{
                   position: 'absolute', inset: 0, opacity: 0, transition: 'opacity 0.4s',
-                  background: `radial-gradient(circle at 50% 0%, ${s.bg}, transparent 60%)`
+                  background: `${s.bg}`,
                 }} />
 
                 <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%' }}>
                   {/* Step + icon row */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: '#4b5563' }}>STEP {s.step}</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--landing-dim)' }}>STEP {s.step}</span>
                     <div style={{ 
                       padding: '0.75rem', 
                       borderRadius: '1rem', 
@@ -109,8 +86,8 @@ export default function StickyStorytelling() {
                   </div>
 
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.625rem', color: '#f3f4f6' }}>{s.title}</h3>
-                    <p style={{ color: '#9ca3af', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1rem', flex: 1 }}>{s.description}</p>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.625rem', color: 'var(--landing-text)' }}>{s.title}</h3>
+                    <p style={{ color: 'var(--landing-muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1rem', flex: 1 }}>{s.description}</p>
                   </div>
 
                   {/* Stat */}
@@ -119,10 +96,10 @@ export default function StickyStorytelling() {
                     flexDirection: 'column',
                     gap: '0.25rem',
                     paddingTop: '0.875rem', 
-                    borderTop: '1px solid rgba(255,255,255,0.06)' 
+                    borderTop: '1px solid var(--landing-border)' 
                   }}>
                     <span style={{ fontSize: '1.4rem', fontWeight: 700, color: s.color }}>{s.stat}</span>
-                    <span style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.025em' }}>{s.statLabel}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--landing-dim)', textTransform: 'uppercase', letterSpacing: '0.025em' }}>{s.statLabel}</span>
                   </div>
                 </div>
               </motion.div>
@@ -139,9 +116,9 @@ export default function StickyStorytelling() {
           style={{
             borderRadius: '1.5rem', 
             padding: '3rem 2.5rem',
-            border: '1px solid rgba(0,217,255,0.15)', 
+            border: '1px solid rgba(var(--landing-accent-rgb),0.15)', 
             textAlign: 'center',
-            background: 'linear-gradient(135deg, rgba(0,217,255,0.06), rgba(176,38,255,0.06))',
+            background: 'rgba(var(--landing-accent-rgb),0.06)',
             backdropFilter: 'blur(20px)',
             boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
             position: 'relative',
@@ -153,7 +130,7 @@ export default function StickyStorytelling() {
             style={{
               position: 'absolute',
               inset: 0,
-              background: 'radial-gradient(circle at 50% 50%, rgba(0,217,255,0.05), transparent 70%)',
+              background: 'rgba(var(--landing-accent-rgb),0.05)',
               opacity: 0.3
             }}
             animate={{
@@ -175,8 +152,8 @@ export default function StickyStorytelling() {
                 padding: '1.25rem', 
                 borderRadius: '1.25rem', 
                 marginBottom: '1.75rem', 
-                background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
-                boxShadow: '0 4px 16px rgba(0,217,255,0.2)'
+                background: 'var(--landing-accent)',
+                boxShadow: '0 4px 16px rgba(var(--landing-accent-rgb),0.2)'
               }}
               whileHover={{ scale: 1.05 }}
               transition={{ duration: 0.3 }}
@@ -189,9 +166,7 @@ export default function StickyStorytelling() {
               fontSize: '2.25rem', 
               fontWeight: 700, 
               marginBottom: '1.25rem',
-              background: 'linear-gradient(90deg, #00d9ff, #b026ff, #ff6bcb)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              color: 'var(--landing-accent)',
               lineHeight: 1.2
             }}>
               The Future of Development
@@ -233,14 +208,14 @@ export default function StickyStorytelling() {
                   <div style={{
                     fontSize: '1.75rem',
                     fontWeight: 700,
-                    color: '#00d9ff',
+                    color: 'var(--landing-accent)',
                     marginBottom: '0.25rem'
                   }}>
                     {stat.value}
                   </div>
                   <div style={{
                     fontSize: '0.875rem',
-                    color: '#9ca3af',
+                    color: 'var(--landing-muted)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
                   }}>

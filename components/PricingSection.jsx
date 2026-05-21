@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { CheckCircle, Sparkles, Zap, ArrowRight } from 'lucide-react'
+import SectionHeader from '@/components/SectionHeader'
 import { useTheme } from './ThemeContext'
 
 const plans = [
@@ -69,35 +70,18 @@ export default function PricingSection() {
   const [yearly, setYearly] = useState(false)
   const { theme } = useTheme()
 
-  const colors = {
-    dark: {
-      background: '#0a0e27',
-      cardBg: 'rgba(15,20,35,0.6)',
-      text: '#e0e0e0',
-      textSecondary: '#9ca3af',
-      border: 'rgba(255,255,255,0.05)',
-      highlightedBg: 'rgba(0,217,255,0.04)',
-      highlightedBorder: 'rgba(6,182,212,0.3)',
-    },
-    light: {
-      background: '#f8f9fa',
-      cardBg: 'rgba(255,255,255,0.9)',
-      text: '#1a1a1a',
-      textSecondary: '#4b5563',
-      border: 'rgba(0,0,0,0.08)',
-      highlightedBg: 'rgba(0,217,255,0.08)',
-      highlightedBorder: 'rgba(6,182,212,0.4)',
-    }
+  const themeColors = {
+    background: 'var(--landing-bg)',
+    cardBg: 'var(--landing-surface)',
+    text: 'var(--landing-text)',
+    textSecondary: 'var(--landing-muted)',
+    border: 'var(--landing-border)',
+    highlightedBg: 'var(--landing-accent-soft)',
+    highlightedBorder: 'var(--landing-border-accent)',
   }
 
-  const themeColors = colors[theme]
-
   return (
-    <section id="pricing" style={{ 
-      paddingTop: '6rem', paddingBottom: '6rem', 
-      paddingLeft: '1rem', paddingRight: '1rem',
-      position: 'relative', overflow: 'hidden'
-    }}>
+    <section id="pricing" className="landing-section" style={{ position: 'relative', overflow: 'hidden' }}>
       {/* Background glow */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         <div style={{ 
@@ -105,53 +89,23 @@ export default function PricingSection() {
           transform: 'translate(-50%, -50%)', 
           width: '50rem', height: '25rem', borderRadius: '9999px', 
           filter: 'blur(48px)', opacity: 0.1,
-          background: 'radial-gradient(ellipse, #00d9ff 0%, #b026ff 50%, transparent 100%)' 
+          background: 'transparent' 
         }} />
       </div>
 
-      <div style={{ maxWidth: '80rem', margin: '0 auto', position: 'relative', zIndex: 10 }}>
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
-          style={{ textAlign: 'center', marginBottom: '4rem' }}
-        >
-          <div style={{ 
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem', 
-            padding: '0.5rem 1rem', borderRadius: '9999px', 
-            border: '1px solid rgba(6,182,212,0.2)', marginBottom: '1.5rem',
-            background: "rgba(0,217,255,0.07)" 
-          }}>
-            <Sparkles style={{ width: '1rem', height: '1rem', color: '#22d3ee' }} />
-            <span style={{ 
-              fontSize: '0.875rem', fontWeight: 500,
-              background: "linear-gradient(135deg, #00d9ff, #b026ff)", 
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" 
-            }}>Simple Pricing</span>
-          </div>
-          <h2 style={{ 
-            fontSize: 'clamp(2.25rem, 5vw, 3.75rem)', 
-            fontWeight: 700, marginBottom: '1.5rem' 
-          }}>
-            Invest in{' '}
-            <span style={{ background: "linear-gradient(90deg, #00d9ff, #b026ff, #ff6bcb)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Better Code
-            </span>
-          </h2>
-          <p style={{ 
-            fontSize: '1.25rem', color: themeColors.textSecondary, 
-            maxWidth: '32rem', margin: '0 auto', marginBottom: '2.5rem' 
-          }}>
-            Start free. Scale as you grow. No hidden fees.
-          </p>
-
-          {/* Toggle */}
+      <div className="landing-container" style={{ position: 'relative', zIndex: 10 }}>
+        <SectionHeader
+          eyebrow="Pricing"
+          icon={Sparkles}
+          title="Invest in"
+          accent="Better Code"
+          description="Start free. Scale as you grow. No hidden fees."
+        />
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
             padding: '0.375rem', borderRadius: '1rem',
-            background: theme === 'dark' ? 'rgba(15,20,35,0.6)' : 'rgba(255,255,255,0.9)', 
+            background: 'var(--landing-surface)', 
             border: `1px solid ${themeColors.border}`,
             backdropFilter: 'blur(12px)',
           }}>
@@ -160,7 +114,7 @@ export default function PricingSection() {
               style={{
                 padding: '0.5rem 1.25rem', borderRadius: '0.75rem',
                 fontSize: '0.875rem', fontWeight: 500, border: 'none', cursor: 'pointer',
-                background: !yearly ? 'linear-gradient(135deg, #00d9ff, #b026ff)' : 'transparent',
+                background: !yearly ? 'var(--landing-accent)' : 'transparent',
                 color: !yearly ? '#fff' : themeColors.textSecondary,
                 transition: 'all 0.2s',
               }}
@@ -173,7 +127,7 @@ export default function PricingSection() {
                 padding: '0.5rem 1.25rem', borderRadius: '0.75rem',
                 fontSize: '0.875rem', fontWeight: 500, border: 'none', cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                background: yearly ? 'linear-gradient(135deg, #00d9ff, #b026ff)' : 'transparent',
+                background: yearly ? 'var(--landing-accent)' : 'transparent',
                 color: yearly ? '#fff' : themeColors.textSecondary,
                 transition: 'all 0.2s',
               }}
@@ -188,18 +142,14 @@ export default function PricingSection() {
               </span>
             </button>
           </div>
-        </motion.div>
+        </div>
 
         {/* Cards */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '1.5rem', 
-          alignItems: 'center',
-        }}>
+        <div className="pricing-grid">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}
+              data-highlighted={plan.highlighted ? 'true' : 'false'}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -214,7 +164,6 @@ export default function PricingSection() {
                 ...(plan.highlighted
                   ? { 
                       borderColor: themeColors.highlightedBorder, 
-                      transform: 'scale(1.05)',
                       background: themeColors.highlightedBg,
                       backdropFilter: 'blur(12px)',
                     }
@@ -227,7 +176,7 @@ export default function PricingSection() {
               }}
               onMouseEnter={(e) => {
                 if (!plan.highlighted) {
-                  e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)'
+                  e.currentTarget.style.borderColor = 'var(--landing-border-accent)'
                 }
               }}
               onMouseLeave={(e) => {
@@ -242,9 +191,9 @@ export default function PricingSection() {
                   <div style={{ 
                     display: 'flex', alignItems: 'center', gap: '0.375rem', 
                     padding: '0.375rem 1rem', borderRadius: '9999px', 
-                    background: 'linear-gradient(135deg, #00d9ff, #b026ff)', 
+                    background: 'var(--landing-accent)', 
                     color: '#fff', fontSize: '0.75rem', fontWeight: 700,
-                    boxShadow: '0 8px 24px rgba(0,217,255,0.3)'
+                    boxShadow: '0 8px 24px rgba(var(--landing-accent-rgb),0.3)'
                   }}>
                     <Zap style={{ width: '0.75rem', height: '0.75rem' }} />
                     {plan.badge}
@@ -256,7 +205,7 @@ export default function PricingSection() {
               <div style={{ marginBottom: '1.5rem' }}>
                 <div style={{ 
                   display: 'inline-flex', padding: '0.625rem', borderRadius: '0.75rem', marginBottom: '1rem',
-                  background: `linear-gradient(135deg, ${plan.color.replace('from-', '').replace('to-', '').replace(' ', ', ')})`
+                  background: 'var(--landing-accent)'
                 }}>
                   <Sparkles style={{ width: '1.25rem', height: '1.25rem', color: '#fff' }} />
                 </div>
@@ -270,8 +219,7 @@ export default function PricingSection() {
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                     <span style={{ 
                       fontSize: '3rem', fontWeight: 700,
-                      background: "linear-gradient(135deg, #00d9ff, #b026ff)", 
-                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" 
+                      color: 'var(--landing-accent)',
                     }}>
                       ${yearly ? plan.yearly : plan.monthly}
                     </span>
@@ -280,8 +228,7 @@ export default function PricingSection() {
                 ) : (
                   <div style={{ 
                     fontSize: '2.25rem', fontWeight: 700,
-                    background: "linear-gradient(135deg, #00d9ff, #b026ff)", 
-                    WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" 
+                    color: 'var(--landing-accent)',
                   }}>Custom</div>
                 )}
                 {plan.monthly && yearly && (
@@ -295,7 +242,7 @@ export default function PricingSection() {
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
                 {plan.features.map((f, i) => (
                   <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem' }}>
-                    <CheckCircle style={{ width: '1rem', height: '1rem', color: '#22d3ee', flexShrink: 0 }} />
+                    <CheckCircle style={{ width: '1rem', height: '1rem', color: 'var(--landing-accent-bright)', flexShrink: 0 }} />
                     <span style={{ color: themeColors.text }}>{f}</span>
                   </li>
                 ))}
@@ -311,7 +258,7 @@ export default function PricingSection() {
                     borderRadius: '0.75rem', fontWeight: 600, fontSize: '0.875rem',
                     textDecoration: 'none', transition: 'all 0.2s',
                     ...(plan.highlighted
-                      ? { background: 'linear-gradient(135deg, #00d9ff, #b026ff)', color: '#fff', boxShadow: '0 8px 24px rgba(0,217,255,0.2)' }
+                      ? { background: 'var(--landing-accent)', color: '#fff', boxShadow: '0 8px 24px rgba(var(--landing-accent-rgb),0.2)' }
                       : { background: 'transparent', color: themeColors.text, border: `1px solid ${themeColors.border}` }
                     ),
                   }}

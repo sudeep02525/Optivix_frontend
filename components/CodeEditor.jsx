@@ -140,7 +140,18 @@ function registerThemes(monaco) {
 
 export default function CodeEditor({ code, setCode, isDarkMode }) {
   const monacoRef = useRef(null)
+  const editorRef = useRef(null)
   const dark = isDarkMode !== false
+
+  // Sync external code changes (e.g. Fix Bugs / Fix SEO) into Monaco
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+    const current = editor.getValue()
+    if (current !== code) {
+      editor.setValue(code)
+    }
+  }, [code])
 
   // Switch theme WITHOUT remounting the editor
   useEffect(() => {
@@ -195,9 +206,9 @@ export default function CodeEditor({ code, setCode, isDarkMode }) {
           registerThemes(monaco)
         }}
         onMount={(editor, monaco) => {
+          editorRef.current = editor
           monacoRef.current = monaco
           registerThemes(monaco)
-          // Set correct theme on first load
           monaco.editor.setTheme(dark ? 'nexus-dark' : 'nexus-light')
         }}
       />

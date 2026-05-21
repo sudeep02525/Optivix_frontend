@@ -7,7 +7,13 @@ import AIAnalysisPanel from '@/components/AIAnalysisPanel.jsx'
 import Console from '@/components/Console.jsx'
 import CodeEditor from '@/components/CodeEditor.jsx'
 import WebsiteAnalyzer from '@/components/WebsiteAnalyzer.jsx'
-import { Zap, Loader, Globe, Wrench, ChevronRight, Bug, Search } from 'lucide-react'
+import FreePeriodBanner from '@/components/FreePeriodBanner.jsx'
+import GitCloneModal from '@/components/GitCloneModal.jsx'
+import SelfHealModal from '@/components/SelfHealModal.jsx'
+import ThemeToggle from '@/components/ThemeToggle'
+import { useTheme } from '@/components/ThemeContext'
+import { Loader, Globe, Wrench, ChevronRight, Bug, Search, File, FileCheck, Menu, Shield, Zap } from 'lucide-react'
+import BrandLogo from '@/components/BrandLogo'
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 const createAnimationVariants = (prefersReducedMotion) => {
@@ -94,7 +100,18 @@ const createAnimationVariants = (prefersReducedMotion) => {
 }
 
 // ── SEO Fixer ─────────────────────────────────────────────────────────────────
-function fixSEO(code) {
+function isHtmlFile(fileName) {
+  return fileName && /\.html?$/i.test(fileName)
+}
+
+function fixSEO(code, fileName) {
+  if (!isHtmlContent(code, fileName)) {
+    return {
+      fixed: code,
+      log: ['⚠️ SEO fix needs HTML content — open an .html file or paste HTML in the editor.'],
+    }
+  }
+
   let fixed = code
   const log = []
 
@@ -187,6 +204,11 @@ function fixSEO(code) {
   return { fixed, log }
 }
 
+function isHtmlContent(code, fileName) {
+  if (isHtmlFile(fileName)) return true
+  return /<html|<!DOCTYPE|<head|<body|<title|<meta[\s>]/i.test(code)
+}
+
 // ── Bug Fixer ─────────────────────────────────────────────────────────────────
 function fixBugs(code) {
   let fixed = code
@@ -195,8 +217,8 @@ function fixBugs(code) {
   const varCount = (fixed.match(/^\s*var\s+/gm) || []).length
   if (varCount > 0) { fixed = fixed.replace(/\bvar\b/g, 'let'); log.push(`✅ Converted ${varCount} var → let`) }
 
-  const eqCount = (fixed.match(/[^=!<>]===[^=]/g) || []).length
-  if (eqCount > 0) { fixed = fixed.replace(/([^=!<>])===([^=])/g, '$1===$2'); log.push(`✅ Fixed ${eqCount} === → ===`) }
+  const eqCount = (fixed.match(/([^=!])==([^=])/g) || []).length
+  if (eqCount > 0) { fixed = fixed.replace(/([^=!])==([^=])/g, '$1===$2'); log.push(`✅ Fixed ${eqCount} == → ===`) }
 
   if (/\.innerHTML\s*=\s*['"`]/.test(fixed)) {
     fixed = fixed.replace(/\.innerHTML\s*=\s*(['"`][^'"`]*['"`])/g, '.textContent = $1')
@@ -204,14 +226,26 @@ function fixBugs(code) {
   }
 
   if (/\beval\s*\(/.test(fixed)) {
-    fixed = fixed.replace(/\beval\s*\(/g, '/* REMOVED: eval() is dangerous */ (')
-    log.push('✅ Marked eval() — remove it manually')
+    fixed = fixed.split('\n').map(line => {
+      if (/\beval\s*\(/.test(line) && !line.trim().startsWith('//')) {
+        return line.replace(/\beval\s*\(/, '/* eval() disabled — security risk */ // eval(')
+      }
+      return line
+    }).join('\n')
+    log.push('✅ Disabled eval() — refactor this code manually')
+  }
+
+  const sqlRisk = fixed.split('\n').filter(l =>
+    /SELECT|INSERT|UPDATE|DELETE/i.test(l) && /\+\s*\w+|'\s*\+|"[\s]*\+/.test(l) && !l.trim().startsWith('//')
+  ).length
+  if (sqlRisk > 0) {
+    log.push(`⚠️ ${sqlRisk} possible SQL injection (string concat in query) — use parameterized queries`)
   }
 
   const consoleCount = (fixed.match(/console\.(log|warn|debug)\(/g) || []).length
   if (consoleCount > 0) {
     fixed = fixed.replace(/console\.(log|warn|debug)\(/g, '// console.$1(')
-    // [REMOVED] log.push(`✅ Commented out ${consoleCount} console.log(s)`)
+    log.push(`✅ Commented out ${consoleCount} console.log(s)`)
   }
 
   if (/await fetch\(/.test(fixed) && !/try\s*\{/.test(fixed))
@@ -233,6 +267,17 @@ function fixBugs(code) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+function languageLabel(name, code) {
+  if (!name) {
+    if (/<html|<!DOCTYPE/i.test(code)) return 'HTML'
+    if (/^\s*[\[{]/.test(code?.trim())) return 'JSON'
+    return 'JavaScript'
+  }
+  const ext = name.split('.').pop()?.toLowerCase()
+  const labels = { js: 'JavaScript', jsx: 'JSX', ts: 'TypeScript', tsx: 'TSX', html: 'HTML', htm: 'HTML', css: 'CSS', json: 'JSON', md: 'Markdown', py: 'Python' }
+  return labels[ext] || ext?.toUpperCase() || 'Plain text'
+}
+
 const IDEPage = () => {
   const prefersReducedMotion = useReducedMotion()
   const variants = createAnimationVariants(prefersReducedMotion)
@@ -245,12 +290,11 @@ const IDEPage = () => {
 // 2. Click "Fix" to fix bugs or SEO issues
 // 3. Click "Analyze Website" to audit any website's SEO
 //
-// Features:
-// ✨ Real-time bug detection
-// 🔒 Security vulnerability scanning
-// ⚡ Performance optimization
-// 🤖 AI-powered auto-fix
-// 🌐 Website analysis
+// Features (same as landing page):
+// ✨ Real-time bug & security scan (right panel)
+// 🐛 Fix → Fix Bugs (var, ==, XSS, eval, console)
+// 🔍 Fix → Fix SEO (meta, OG, schema — open .html)
+// 🌐 Analyze Website (top bar) — live URL SEO audit
 
 `)
 
@@ -259,12 +303,24 @@ const IDEPage = () => {
   const [activeTab, setActiveTab]         = useState('explorer')
   const [fixLog, setFixLog]               = useState([])
   const [showWebsiteAnalyzer, setShowWebsiteAnalyzer] = useState(false)
+  const [showGitClone, setShowGitClone] = useState(false)
+  const [showSelfHeal, setShowSelfHeal] = useState(false)
+  const [analysisSnapshot, setAnalysisSnapshot] = useState({ issues: [], healthScore: 100, aiModel: null })
   const [selectedFile, setSelectedFile]   = useState(null)
-  const [isDarkMode, setIsDarkMode]       = useState(true)
   const [currentFileHandle, setCurrentFileHandle] = useState(null)
   const [saveStatus, setSaveStatus]       = useState('')
   const [showFixMenu, setShowFixMenu]     = useState(false)
   const [authChecked, setAuthChecked]     = useState(false)
+  const [sidebarOpen, setSidebarOpen]     = useState(false)
+  const [isMobile, setIsMobile]           = useState(false)
+  const codeRef = useRef(code)
+  const { theme } = useTheme()
+  const isDarkMode = theme === 'dark'
+
+  // Keep ref in sync so async fix uses latest editor content
+  useEffect(() => {
+    codeRef.current = code
+  }, [code])
 
   // Auth guard - redirect to /auth if not logged in
   useEffect(() => {
@@ -276,10 +332,16 @@ const IDEPage = () => {
     }
   }, [])
 
-  // Dark/Light mode
   useEffect(() => {
-    document.body.classList.toggle('light-mode', !isDarkMode)
-  }, [isDarkMode])
+    const check = () => setIsMobile(window.innerWidth <= 900)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
+    if (!isMobile) setSidebarOpen(false)
+  }, [isMobile])
 
   // Ctrl+S to save
   useEffect(() => {
@@ -307,10 +369,11 @@ const IDEPage = () => {
   // Show loading while checking auth - AFTER all hooks
   if (!authChecked) {
     return (
-      <div style={{ height: '100vh', background: '#0a0e27', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ height: '100vh', background: 'var(--ide-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#00d9ff', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Loading Optivix...</p>
+          <BrandLogo size="lg" showWordmark style={{ justifyContent: 'center', marginBottom: 16 }} />
+          <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid rgba(91,156,245,0.2)', borderTopColor: 'var(--landing-accent)', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          <p style={{ color: 'var(--ide-text-muted)', fontSize: 13 }}>Loading workspace…</p>
         </div>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -318,9 +381,10 @@ const IDEPage = () => {
   }
 
   const handleFileSelect = (fileName, fileContent, fileHandle) => {
+    console.log('handleFileSelect called:', fileName, fileContent?.substring(0, 50)) // Debug
     setSelectedFile(fileName)
     setCurrentFileHandle(fileHandle || null)
-    // [REMOVED] setCode(fileContent !== undefined ? fileContent : `// ${fileName}\nconsole.log('File: ${fileName}')`)
+    setCode(fileContent || `// ${fileName}\n// File is empty or could not be loaded`)
   }
 
   // ── Run fix (bugs or SEO) ──────────────────────────────────────────────────
@@ -349,13 +413,15 @@ const IDEPage = () => {
         ]
 
     for (const [progress, msg] of steps) {
-      await new Promise(r => setTimeout(r, 400))
+      await new Promise(r => setTimeout(r, 150))
       setFixProgress(progress)
       setFixLog(prev => [...prev, msg])
     }
 
-    const { fixed, log } = type === 'seo' ? fixSEO(code) : fixBugs(code)
+    const currentCode = codeRef.current
+    const { fixed, log } = type === 'seo' ? fixSEO(currentCode, selectedFile) : fixBugs(currentCode)
     setCode(fixed)
+    codeRef.current = fixed
     setFixLog(prev => [...prev, '', '── Results ──', ...log])
 
     // Auto-save if file is open
@@ -370,86 +436,48 @@ const IDEPage = () => {
     setTimeout(() => { setIsFixing(false); setFixProgress(0) }, 1200)
   }
 
-  // ── Theme colors ───────────────────────────────────────────────────────────
-  const dark    = isDarkMode
-  const topBg   = dark ? '#18181b' : '#dde3ea'
-  const topBdr  = dark ? 'rgba(99,102,241,0.1)' : 'rgba(0,150,200,0.2)'
-  const rootBg  = dark ? '#0a0e27' : '#f0f4f8'
-  const textCol = dark ? '#e0e0e0' : '#1a1a2e'
-  const textDim = dark ? 'rgba(224,224,224,0.5)' : 'rgba(26,26,46,0.5)'
-  const glowColor = dark ? '#00d9ff' : '#0096c8'
+  const accent = 'var(--landing-accent)'
+  const topBdr = 'var(--ide-border)'
+  const textCol = 'var(--ide-text)'
+  const textDim = 'var(--ide-text-muted)'
+  const surface = 'var(--ide-surface)'
+  const cardBg = 'var(--ide-card-bg)'
 
   return (
     <motion.div 
       initial="hidden"
       animate="visible"
       variants={variants.pageEntry}
-      style={{ 
-        height: '100vh', 
-        width: '100vw',
-        display: 'flex', 
-        flexDirection: 'column', 
-        overflow: 'hidden', 
-        background: rootBg, 
-        color: textCol, 
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0
-      }}
+      className="ide-shell"
     >
-      {/* Animated Background Gradient */}
-      {!prefersReducedMotion && (
-        <motion.div
-          animate={{
-            background: [
-              `radial-gradient(circle at 20% 30%, ${dark ? 'rgba(0,217,255,0.08)' : 'rgba(0,150,200,0.05)'}, transparent 50%)`,
-              `radial-gradient(circle at 80% 70%, ${dark ? 'rgba(176,38,255,0.08)' : 'rgba(139,92,246,0.05)'}, transparent 50%)`,
-              `radial-gradient(circle at 40% 60%, ${dark ? 'rgba(0,217,255,0.08)' : 'rgba(0,150,200,0.05)'}, transparent 50%)`
-            ]
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: 'linear'
-          }}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            zIndex: 0
-          }}
-        />
-      )}
+      {/* Free Period Banner */}
+      <FreePeriodBanner />
 
       {/* ── TOP BAR ───────────────────────────────────────────────────────── */}
       <motion.div 
         variants={variants.topBar}
-        style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', background: topBg, borderBottom: `1px solid ${topBdr}`, flexShrink: 0, position: 'relative', zIndex: 10 }}
+        className="ide-topbar"
+        style={{ zIndex: showFixMenu ? 1001 : 10 }}
       >
 
         {/* Left: Logo + file */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <motion.div 
-              animate={!prefersReducedMotion ? {
-                boxShadow: [
-                  '0 0 0px rgba(0,217,255,0)',
-                  '0 0 20px rgba(0,217,255,0.6)',
-                  '0 0 0px rgba(0,217,255,0)'
-                ]
-              } : {}}
-              transition={!prefersReducedMotion ? { 
-                duration: 2, 
-                repeat: Infinity, 
-                repeatDelay: 3 
-              } : {}}
-              style={{ width: 24, height: 24, borderRadius: 6, background: '#00d9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        <motion.div variants={variants.topBar} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+          {isMobile && (
+            <button
+              type="button"
+              aria-label="Open sidebar"
+              onClick={() => setSidebarOpen(true)}
+              style={{
+                width: 36, height: 36, borderRadius: 8, border: '1px solid var(--ide-border)',
+                background: 'var(--ide-surface)', color: 'var(--ide-text)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
             >
-              <Zap style={{ width: 14, height: 14, color: 'white' }} />
-            </motion.div>
-            <span style={{ fontWeight: 800, fontSize: 14, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>Optivix</span>
+              <Menu style={{ width: 18, height: 18 }} />
+            </button>
+          )}
+          <div className="ide-topbar-brand" style={{ flexShrink: 0 }}>
+            <BrandLogo href="/" size="sm" showWordmark />
           </div>
 
           <AnimatePresence mode="wait">
@@ -459,24 +487,25 @@ const IDEPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.3 }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 6, background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', fontSize: 12, color: textDim, maxWidth: 220, overflow: 'hidden' }}
+                className="ide-topbar-file"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 6, background: 'var(--landing-accent-soft)', fontSize: 12, color: textDim, maxWidth: 220, overflow: 'hidden' }}
               >
-                <span>📄</span>
+                <File style={{ width: 14, height: 14, color: textDim, flexShrink: 0 }} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedFile}</span>
                 <AnimatePresence mode="wait">
                   {saveStatus === 'saving'  && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ color: '#facc15', flexShrink: 0 }}>saving...</motion.span>}
-                  {saveStatus === 'saved'   && <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ color: '#4ade80', flexShrink: 0 }}>✓ saved</motion.span>}
+                  {saveStatus === 'saved'   && <motion.span initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ color: '#4ade80', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}><FileCheck style={{ width: 12, height: 12 }} /> saved</motion.span>}
                   {saveStatus === 'error'   && <motion.span initial={{ opacity: 0, x: [-10, 10, -10, 0] }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} style={{ color: '#f87171', flexShrink: 0 }}>✗ error</motion.span>}
                   {saveStatus === 'no-file' && <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ color: '#fb923c', flexShrink: 0 }}>no file open</motion.span>}
                 </AnimatePresence>
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
 
         {/* Right: Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-
+          <ThemeToggle />
           {/* Analyze Website */}
           <motion.button
             variants={variants.button}
@@ -484,10 +513,11 @@ const IDEPage = () => {
             whileHover="hover"
             whileTap="tap"
             onClick={() => setShowWebsiteAnalyzer(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(139,92,246,0.35)', background: 'rgba(139,92,246,0.12)', color: '#4ade80', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            className="ide-hide-mobile"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: `1px solid ${topBdr}`, background: 'var(--landing-accent-soft)', color: accent, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
           >
             <Globe style={{ width: 14, height: 14 }} />
-            Analyze Website
+            <span className="ide-hide-mobile">Analyze</span>
           </motion.button>
 
           {/* Fix button with dropdown */}
@@ -499,7 +529,7 @@ const IDEPage = () => {
               whileTap="tap"
               onClick={() => setShowFixMenu(!showFixMenu)}
               disabled={isFixing}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: '#00d9ff', color: 'white', fontSize: 12, fontWeight: 700, cursor: isFixing ? 'not-allowed' : 'pointer', opacity: isFixing ? 0.6 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: 'none', background: accent, color: 'var(--landing-btn-text)', fontSize: 12, fontWeight: 700, cursor: isFixing ? 'not-allowed' : 'pointer', opacity: isFixing ? 0.6 : 1 }}
             >
               {isFixing ? (
                 <><Loader style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} /><span>Fixing... {fixProgress}%</span></>
@@ -516,12 +546,13 @@ const IDEPage = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -6, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  style={{ position: 'absolute', top: '110%', right: 0, zIndex: 1000, background: dark ? '#18181b' : '#e8edf5', border: `1px solid ${topBdr}`, borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                  style={{ position: 'absolute', top: '110%', right: 0, zIndex: 1000, background: cardBg, border: `1px solid ${topBdr}`, borderRadius: 10, overflow: 'hidden', minWidth: 180, boxShadow: isDarkMode ? '0 8px 32px rgba(0,0,0,0.4)' : '0 8px 32px rgba(0,0,0,0.12)' }}
                 >
                   <motion.button
-                    onClick={() => runFix('bugs')}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); runFix('bugs') }}
                     whileHover={{ 
-                      backgroundColor: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)',
+                      backgroundColor: isDarkMode ? 'rgba(91,156,245,0.08)' : 'rgba(91,156,245,0.1)',
                       x: 4
                     }}
                     transition={{ duration: 0.2 }}
@@ -537,20 +568,36 @@ const IDEPage = () => {
                   </motion.button>
 
                   <motion.button
-                    onClick={() => runFix('seo')}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); runFix('seo') }}
                     whileHover={{ 
-                      backgroundColor: dark ? 'rgba(99,102,241,0.08)' : 'rgba(0,150,200,0.1)',
+                      backgroundColor: isDarkMode ? 'rgba(91,156,245,0.08)' : 'rgba(91,156,245,0.1)',
                       x: 4
                     }}
                     transition={{ duration: 0.2 }}
                     style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', color: textCol, fontSize: 13, textAlign: 'left' }}
                   >
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Search style={{ width: 16, height: 16, color: '#4ade80' }} />
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(91,156,245,0.1)', border: '1px solid rgba(91,156,245,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Search style={{ width: 16, height: 16, color: accent }} />
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 13 }}>Fix SEO</div>
                       <div style={{ fontSize: 11, color: textDim }}>Fixes meta, og tags, schema, alt text</div>
+                    </div>
+                  </motion.button>
+
+                  <motion.button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowFixMenu(false); setShowSelfHeal(true) }}
+                    whileHover={{ backgroundColor: isDarkMode ? 'rgba(91,156,245,0.08)' : 'rgba(91,156,245,0.1)', x: 4 }}
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', border: 'none', background: 'none', cursor: 'pointer', color: textCol, fontSize: 13, textAlign: 'left', borderTop: `1px solid ${topBdr}` }}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Shield style={{ width: 16, height: 16, color: 'var(--landing-success)' }} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>Self-Heal</div>
+                      <div style={{ fontSize: 11, color: textDim }}>Production crash → hotfix deploy</div>
                     </div>
                   </motion.button>
                 </motion.div>
@@ -561,23 +608,35 @@ const IDEPage = () => {
       </motion.div>
 
       {/* ── MAIN BODY ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1, minHeight: 0 }}>
+      {sidebarOpen && isMobile && (
+        <motion.div className="ide-mobile-backdrop" onClick={() => setSidebarOpen(false)} role="presentation" />
+      )}
+      <div className="ide-body">
 
         {/* Sidebar */}
-        <motion.div variants={variants.sidebar} style={{ height: '100%' }}>
-          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onFileSelect={handleFileSelect} isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />
+        <motion.div variants={variants.sidebar} className={`ide-sidebar-wrap${sidebarOpen ? ' ide-sidebar-wrap--open' : ''}`}>
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onGitClone={() => setShowGitClone(true)}
+            analysisSnapshot={analysisSnapshot}
+            isFixing={isFixing}
+            onFileSelect={(name, content, handle) => {
+              handleFileSelect(name, content, handle)
+              setSidebarOpen(false)
+            }}
+          />
         </motion.div>
 
         {/* Center + Right */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0 }}>
+        <div className="ide-main">
 
           {/* Editor + AI Panel */}
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden', gap: 12, padding: 12, minHeight: 0 }}>
+          <motion.div variants={variants.editor} className="ide-editor-row">
 
             {/* Code Editor - Glass Card */}
             <motion.div 
-              variants={variants.editor}
-              whileHover={{ scale: 1.002 }}
+              className="ide-editor-card"
               style={{ 
                 flex: 1, 
                 display: 'flex',
@@ -587,9 +646,9 @@ const IDEPage = () => {
                 border: `1px solid ${topBdr}`, 
                 minWidth: 0,
                 minHeight: 0,
-                background: dark ? 'rgba(24,24,27,0.6)' : 'rgba(255,255,255,0.6)',
+                background: surface,
                 backdropFilter: 'blur(12px)',
-                boxShadow: dark 
+                boxShadow: isDarkMode 
                   ? '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' 
                   : '0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)',
                 position: 'relative'
@@ -602,7 +661,7 @@ const IDEPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: dark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
+                background: 'var(--ide-hero-panel)',
                 flexShrink: 0
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -613,7 +672,7 @@ const IDEPage = () => {
                     {selectedFile || 'Untitled'}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: textDim }}>JavaScript</div>
+                <div style={{ fontSize: 11, color: textDim }}>{languageLabel(selectedFile, code)}</div>
               </div>
               
               <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
@@ -624,9 +683,8 @@ const IDEPage = () => {
             {/* AI Analysis Panel - Glass Card */}
             <motion.div 
               variants={variants.aiPanel}
-              whileHover={{ scale: 1.002 }}
+              className="ide-ai-panel"
               style={{ 
-                width: 320, 
                 flexShrink: 0, 
                 display: 'flex',
                 flexDirection: 'column',
@@ -634,9 +692,9 @@ const IDEPage = () => {
                 borderRadius: 16,
                 border: `1px solid ${topBdr}`,
                 minHeight: 0,
-                background: dark ? 'rgba(24,24,27,0.6)' : 'rgba(255,255,255,0.6)',
+                background: surface,
                 backdropFilter: 'blur(12px)',
-                boxShadow: dark 
+                boxShadow: isDarkMode 
                   ? '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' 
                   : '0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)'
               }}
@@ -645,7 +703,7 @@ const IDEPage = () => {
               <div style={{ 
                 padding: '16px', 
                 borderBottom: `1px solid ${topBdr}`,
-                background: dark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
+                background: 'var(--ide-hero-panel)',
                 flexShrink: 0
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -656,13 +714,13 @@ const IDEPage = () => {
                       width: 32, 
                       height: 32, 
                       borderRadius: 8, 
-                      background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
+                      background: accent,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}
                   >
-                    <Zap style={{ width: 16, height: 16, color: 'white' }} />
+                    <Zap style={{ width: 16, height: 16, color: 'var(--landing-btn-text)' }} />
                   </motion.div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: textCol }}>AI Analysis</div>
@@ -672,28 +730,31 @@ const IDEPage = () => {
               </div>
               
               <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <AIAnalysisPanel code={code} isHealing={isFixing} isDarkMode={isDarkMode} />
+                <AIAnalysisPanel
+                  code={code}
+                  fileName={selectedFile}
+                  isHealing={isFixing}
+                  isDarkMode={isDarkMode}
+                  onRunFix={runFix}
+                  onCodeChange={(next) => { setCode(next); codeRef.current = next }}
+                  onAnalysisUpdate={setAnalysisSnapshot}
+                />
               </div>
             </motion.div>
-          </div>
+          </motion.div>
 
           {/* Console - Glass Card */}
           <motion.div 
             variants={variants.console}
-            whileHover={{ scale: 1.001 }}
-            style={{ 
-              height: 180,
-              flexShrink: 0, 
-              padding: '0 12px 12px',
-            }}
+            className="ide-console-wrap"
           >
             <div style={{
               height: '100%',
               borderRadius: 16,
               border: `1px solid ${topBdr}`,
-              background: dark ? 'rgba(24,24,27,0.6)' : 'rgba(255,255,255,0.6)',
+              background: isDarkMode ? 'rgba(24,24,27,0.6)' : 'rgba(255,255,255,0.6)',
               backdropFilter: 'blur(12px)',
-              boxShadow: dark 
+              boxShadow: isDarkMode 
                 ? '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' 
                 : '0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)',
               overflow: 'hidden',
@@ -707,7 +768,7 @@ const IDEPage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: dark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
+                background: 'var(--ide-hero-panel)',
                 flexShrink: 0
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -727,7 +788,7 @@ const IDEPage = () => {
               </div>
               
               <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <Console isDarkMode={isDarkMode} />
+                <Console isDarkMode={isDarkMode} fixLog={fixLog} isFixing={isFixing} />
               </div>
             </div>
           </motion.div>
@@ -736,8 +797,31 @@ const IDEPage = () => {
 
       {/* ── WEBSITE ANALYZER MODAL ────────────────────────────────────────── */}
       <AnimatePresence>
-        {showWebsiteAnalyzer && <WebsiteAnalyzer onClose={() => setShowWebsiteAnalyzer(false)} />}
+        {showWebsiteAnalyzer && (
+          <WebsiteAnalyzer
+            isDarkMode={isDarkMode}
+            onClose={() => setShowWebsiteAnalyzer(false)}
+            onOpenInEditor={(html) => {
+              setCode(html)
+              codeRef.current = html
+              setSelectedFile('audited-page.html')
+            }}
+          />
+        )}
       </AnimatePresence>
+      {showGitClone && <GitCloneModal onClose={() => setShowGitClone(false)} />}
+      {showSelfHeal && (
+        <SelfHealModal
+          code={code}
+          fileName={selectedFile}
+          onClose={() => setShowSelfHeal(false)}
+          onHealed={(fixed) => {
+            setCode(fixed)
+            codeRef.current = fixed
+            setFixLog(['🛡️ Self-heal applied', '✅ Production hotfix deployed'])
+          }}
+        />
+      )}
 
       {/* ── FIX OVERLAY ───────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -746,21 +830,21 @@ const IDEPage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'fixed', inset: 0, background: 'var(--ide-overlay)', backdropFilter: 'blur(4px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <motion.div
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.85, opacity: 0 }}
-              style={{ background: '#18181b', border: '1px solid rgba(99,102,241,0.3)', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
+              style={{ background: surface, border: '1px solid var(--landing-border-accent)', borderRadius: 16, padding: 28, maxWidth: 360, width: '90%', boxShadow: isDarkMode ? '0 20px 60px rgba(0,0,0,0.5)' : '0 20px 60px rgba(0,0,0,0.15)' }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-                  style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.2)', borderTopColor: '#00d9ff', marginBottom: 12 }}
+                  style={{ width: 48, height: 48, borderRadius: '50%', border: '2px solid rgba(91,156,245,0.2)', borderTopColor: accent, marginBottom: 12 }}
                 />
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#00d9ff', WebkitTextFillColor: '#00d9ff' }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#fafafa' }}>
                   AI is fixing your code...
                 </p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{fixProgress}% Complete</p>
@@ -771,7 +855,7 @@ const IDEPage = () => {
                 <motion.div
                   animate={{ width: `${fixProgress}%` }}
                   transition={{ duration: 0.3 }}
-                  style={{ height: '100%', background: 'linear-gradient(90deg, #00d9ff, #b026ff)', borderRadius: 99 }}
+                  style={{ height: '100%', background: accent, borderRadius: 99 }}
                 />
               </div>
 
@@ -782,7 +866,7 @@ const IDEPage = () => {
                     key={i}
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
-                    style={{ fontSize: 11, color: line === '' ? 'transparent' : line.startsWith('──') ? 'rgba(99,102,241,0.6)' : 'rgba(255,255,255,0.7)', fontFamily: 'monospace', marginBottom: 2, borderTop: line.startsWith('──') ? '1px solid rgba(99,102,241,0.15)' : 'none', paddingTop: line.startsWith('──') ? 6 : 0 }}
+                    style={{ fontSize: 11, color: line === '' ? 'transparent' : line.startsWith('──') ? 'rgba(91,156,245,0.6)' : 'rgba(255,255,255,0.7)', fontFamily: 'monospace', marginBottom: 2, borderTop: line.startsWith('──') ? '1px solid rgba(91,156,245,0.15)' : 'none', paddingTop: line.startsWith('──') ? 6 : 0 }}
                   >
                     {line || ' '}
                   </motion.div>
@@ -793,10 +877,10 @@ const IDEPage = () => {
         )}
       </AnimatePresence>
 
-      {/* Close fix menu on outside click */}
+      {/* Close fix menu on outside click — z-index below top bar so dropdown stays clickable */}
       {showFixMenu && (
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 999 }}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000 }}
           onClick={() => setShowFixMenu(false)}
         />
       )}

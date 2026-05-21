@@ -22,6 +22,13 @@ export function ThemeProvider({ children }) {
     }
   }, [])
 
+  // Apply theme to <html> for CSS variables (landing, auth, body)
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    document.body.classList.toggle('light-mode', theme === 'light')
+    document.body.classList.toggle('dark-mode', theme === 'dark')
+  }, [theme])
+
   // Persist theme changes to localStorage
   useEffect(() => {
     if (mounted) {
@@ -29,18 +36,12 @@ export function ThemeProvider({ children }) {
         localStorage.setItem('optivix-theme', theme)
       } catch (error) {
         console.error('Failed to save theme preference:', error)
-        // Continue without persistence
       }
     }
   }, [theme, mounted])
 
   const toggleTheme = () => {
     setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark')
-  }
-
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return <>{children}</>
   }
 
   return (

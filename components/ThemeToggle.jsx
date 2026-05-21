@@ -19,14 +19,14 @@ export default function ThemeToggle() {
         height: '2.5rem',
         borderRadius: '50%',
         border: theme === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
-        background: theme === 'dark' ? 'rgba(15,20,35,0.6)' : 'rgba(255,255,255,0.9)',
+        background: theme === 'dark' ? '#161616' : 'rgba(255,255,255,0.9)',
         backdropFilter: 'blur(10px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
         transition: 'all 0.3s ease',
-        color: theme === 'dark' ? '#00d9ff' : '#b026ff',
+        color: '#5b9cf5',
       }}
     >
       <motion.div

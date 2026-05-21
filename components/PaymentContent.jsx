@@ -3,8 +3,11 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Zap, Check, X, Sparkles, Rocket, Crown, ArrowRight, Loader } from 'lucide-react'
+import { Zap, Check, X, Sparkles, Rocket, Crown, ArrowRight, Loader, CheckCircle, Mail, CreditCard, MapPin, ArrowLeft } from 'lucide-react'
 import { useTheme } from '@/components/ThemeContext'
+import Link from 'next/link'
+import ThemeToggle from '@/components/ThemeToggle'
+import BrandLogo from '@/components/BrandLogo'
 
 const planDetails = {
   free: {
@@ -87,28 +90,15 @@ function PaymentContent() {
     return null
   }
   
-  const colors = {
-    dark: {
-      background: '#0a0e27',
-      cardBg: 'rgba(15,20,35,0.6)',
-      text: '#e0e0e0',
-      textSecondary: '#9ca3af',
-      border: 'rgba(255,255,255,0.05)',
-      inputBg: 'rgba(15,20,35,0.8)',
-      inputBorder: 'rgba(255,255,255,0.1)',
-    },
-    light: {
-      background: '#f8f9fa',
-      cardBg: 'rgba(255,255,255,0.9)',
-      text: '#1a1a1a',
-      textSecondary: '#4b5563',
-      border: 'rgba(0,0,0,0.08)',
-      inputBg: '#ffffff',
-      inputBorder: 'rgba(0,0,0,0.15)',
-    }
+  const themeColors = {
+    background: 'var(--landing-bg)',
+    cardBg: 'var(--landing-surface)',
+    text: 'var(--landing-text)',
+    textSecondary: 'var(--landing-muted)',
+    border: 'var(--landing-border)',
+    inputBg: 'var(--landing-bg-soft)',
+    inputBorder: 'var(--landing-border)',
   }
-  
-  const themeColors = colors[theme]
   
   // Validation functions
   const validateEmail = (email) => {
@@ -227,7 +217,7 @@ function PaymentContent() {
   }
   
   return (
-    <div style={{
+    <div className="font-display" style={{
       background: themeColors.background,
       minHeight: '100vh',
       color: themeColors.text,
@@ -237,7 +227,7 @@ function PaymentContent() {
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        background: theme === 'dark' ? 'rgba(10,14,39,0.85)' : 'rgba(255,255,255,0.85)',
+        background: theme === 'dark' ? 'rgba(12,12,12,0.92)' : 'rgba(255,255,255,0.94)',
         backdropFilter: 'blur(20px)',
         borderBottom: `1px solid ${themeColors.border}`,
       }}>
@@ -245,8 +235,9 @@ function PaymentContent() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '4rem' }}>
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none', color: themeColors.text }}>
               <ArrowLeft size={20} />
-              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Back to Home</span>
+              <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>Back</span>
             </Link>
+            <BrandLogo href="/" size="sm" showWordmark />
             <ThemeToggle />
           </div>
         </div>
@@ -277,9 +268,7 @@ function PaymentContent() {
                 <div style={{
                   fontSize: '3rem',
                   fontWeight: 700,
-                  background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  color: '#5b9cf5',
                 }}>
                   $0
                 </div>
@@ -296,8 +285,8 @@ function PaymentContent() {
                       borderRadius: '0.5rem',
                       border: 'none',
                       cursor: 'pointer',
-                      background: !yearly ? 'linear-gradient(135deg, #00d9ff, #b026ff)' : 'transparent',
-                      color: !yearly ? '#fff' : themeColors.textSecondary,
+                      background: !yearly ? '#5b9cf5' : 'transparent',
+                      color: !yearly ? '#0c0c0c' : themeColors.textSecondary,
                       fontSize: '0.875rem',
                       fontWeight: 500,
                     }}
@@ -311,8 +300,8 @@ function PaymentContent() {
                       borderRadius: '0.5rem',
                       border: 'none',
                       cursor: 'pointer',
-                      background: yearly ? 'linear-gradient(135deg, #00d9ff, #b026ff)' : 'transparent',
-                      color: yearly ? '#fff' : themeColors.textSecondary,
+                      background: yearly ? '#5b9cf5' : 'transparent',
+                      color: yearly ? '#0c0c0c' : themeColors.textSecondary,
                       fontSize: '0.875rem',
                       fontWeight: 500,
                     }}
@@ -324,9 +313,7 @@ function PaymentContent() {
                 <div style={{
                   fontSize: '3rem',
                   fontWeight: 700,
-                  background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  color: '#5b9cf5',
                 }}>
                   ${yearly ? currentPlan.yearlyPrice : currentPlan.monthlyPrice}
                 </div>
@@ -339,9 +326,7 @@ function PaymentContent() {
                 <div style={{
                   fontSize: '2.25rem',
                   fontWeight: 700,
-                  background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
+                  color: '#5b9cf5',
                 }}>
                   Custom Pricing
                 </div>
@@ -355,7 +340,7 @@ function PaymentContent() {
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {currentPlan.features.map((feature, index) => (
                   <li key={index} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <CheckCircle size={18} style={{ color: '#22d3ee', flexShrink: 0 }} />
+                    <CheckCircle size={18} style={{ color: '#5b9cf5', flexShrink: 0 }} />
                     <span style={{ fontSize: '0.875rem', color: themeColors.text }}>{feature}</span>
                   </li>
                 ))}
@@ -386,7 +371,7 @@ function PaymentContent() {
                 width: '4rem',
                 height: '4rem',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
+                background: '#5b9cf5',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -408,12 +393,12 @@ function PaymentContent() {
                   justifyContent: 'center',
                   padding: '0.875rem 2rem',
                   borderRadius: '0.75rem',
-                  background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
-                  color: '#fff',
+                  background: '#5b9cf5',
+                  color: '#0c0c0c',
                   fontSize: '1rem',
                   fontWeight: 600,
                   textDecoration: 'none',
-                  boxShadow: '0 8px 24px rgba(0,217,255,0.2)',
+                  boxShadow: 'none',
                 }}
               >
                 Get Started
@@ -458,8 +443,8 @@ function PaymentContent() {
                         transition: 'all 0.2s',
                       }}
                       onMouseEnter={(e) => {
-                        e.target.style.borderColor = '#00d9ff'
-                        e.target.style.background = 'rgba(0,217,255,0.05)'
+                        e.target.style.borderColor = '#5b9cf5'
+                        e.target.style.background = 'rgba(91,156,245,0.05)'
                       }}
                       onMouseLeave={(e) => {
                         e.target.style.borderColor = themeColors.inputBorder
@@ -695,12 +680,11 @@ function PaymentContent() {
                     padding: '0.875rem',
                     borderRadius: '0.75rem',
                     border: 'none',
-                    background: isFormValid() && !processing ? 'linear-gradient(135deg, #00d9ff, #b026ff)' : themeColors.border,
-                    color: isFormValid() && !processing ? '#fff' : themeColors.textSecondary,
+                    background: isFormValid() && !processing ? '#5b9cf5' : themeColors.border,
+                    color: isFormValid() && !processing ? '#0c0c0c' : themeColors.textSecondary,
                     fontSize: '1rem',
                     fontWeight: 600,
                     cursor: isFormValid() && !processing ? 'pointer' : 'not-allowed',
-                    boxShadow: isFormValid() && !processing ? '0 8px 24px rgba(0,217,255,0.2)' : 'none',
                     transition: 'all 0.2s',
                   }}
                 >
@@ -723,15 +707,15 @@ export default function PaymentPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0a0e27',
-        color: '#e0e0e0'
+        background: 'var(--landing-bg)',
+        color: 'var(--landing-text)'
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
             width: '3rem',
             height: '3rem',
-            border: '3px solid rgba(0,217,255,0.2)',
-            borderTopColor: '#00d9ff',
+            border: '3px solid rgba(91,156,245,0.2)',
+            borderTopColor: '#5b9cf5',
             borderRadius: '50%',
             margin: '0 auto 1rem',
             animation: 'spin 1s linear infinite'

@@ -1,240 +1,405 @@
 'use client'
 
-import { motion } from 'framer-motion'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowRight, Play, Bug, Shield, Zap, CheckCircle2, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 
-const S = {
-  section: {
-    position: 'relative', minHeight: '100vh',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden', paddingTop: '5rem', paddingBottom: '3rem',
-  },
-  orb1: {
-    position: 'absolute', top: '15%', left: '5%',
-    width: '35rem', height: '35rem', borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(0,217,255,0.2), transparent 70%)',
-    filter: 'blur(80px)', pointerEvents: 'none',
-    zIndex: 0,
-  },
-  orb2: {
-    position: 'absolute', bottom: '10%', right: '5%',
-    width: '35rem', height: '35rem', borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(176,38,255,0.2), transparent 70%)',
-    filter: 'blur(80px)', pointerEvents: 'none',
-    zIndex: 0,
-  },
-  orb3: {
-    position: 'absolute', top: '50%', left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '25rem', height: '25rem', borderRadius: '50%',
-    background: 'radial-gradient(circle, rgba(255,107,203,0.1), transparent 70%)',
-    filter: 'blur(100px)', pointerEvents: 'none',
-    zIndex: 0,
-  },
-  content: {
-    position: 'relative', zIndex: 10,
-    width: '100%', maxWidth: '64rem',
-    margin: '0 auto', padding: '0 1.5rem',
-    textAlign: 'center',
-  },
-  badge: {
-    display: 'inline-flex', alignItems: 'center', gap: '0.625rem',
-    padding: '0.625rem 1.25rem', borderRadius: '9999px',
-    background: 'rgba(0,217,255,0.1)',
-    border: '1px solid rgba(0,217,255,0.3)',
-    marginBottom: '2.5rem',
-    boxShadow: '0 0 30px rgba(0,217,255,0.2)',
-  },
-  badgeText: {
-    fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.02em',
-    background: 'linear-gradient(90deg, #00d9ff, #b026ff)',
-    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-  },
-  h1: { 
-    fontWeight: 800, lineHeight: 1.15, marginBottom: '2rem',
-    letterSpacing: '-0.02em',
-  },
-  gradLine: {
-    display: 'block', marginTop: '0.5rem',
-    background: 'linear-gradient(90deg, #00d9ff, #b026ff, #ff6bcb)',
-    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-  },
-  subtitle: {
-    color: '#d1d5db', maxWidth: '42rem', margin: '0 auto 3rem',
-    lineHeight: 1.8, fontSize: '1.15rem', fontWeight: 400,
-  },
-  btnRow: {
-    display: 'flex', flexWrap: 'wrap', gap: '1.25rem',
-    justifyContent: 'center', marginBottom: '0',
-  },
-  btnPrimary: {
-    display: 'inline-flex', alignItems: 'center', gap: '0.75rem',
-    padding: '1rem 2.5rem', borderRadius: '0.875rem',
-    background: 'linear-gradient(135deg, #00d9ff, #b026ff)',
-    color: '#fff', fontWeight: 600, fontSize: '1.05rem',
-    textDecoration: 'none', whiteSpace: 'nowrap',
-    boxShadow: '0 4px 20px rgba(0,217,255,0.3)',
-    transition: 'all 0.3s ease',
-  },
-  btnSecondary: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    padding: '1rem 2.5rem', borderRadius: '0.875rem',
-    border: '2px solid rgba(0,217,255,0.5)',
-    color: '#00d9ff', fontWeight: 600, fontSize: '1.05rem',
-    textDecoration: 'none', whiteSpace: 'nowrap', 
-    background: 'rgba(0,217,255,0.05)',
-    backdropFilter: 'blur(10px)',
-    boxShadow: '0 0 0 rgba(0,217,255,0)',
-    transition: 'all 0.3s ease',
-  },
-  scrollDot: {
-    position: 'absolute', bottom: '2.5rem', left: '50%',
-    transform: 'translateX(-50%)', zIndex: 10,
-  },
-  scrollRing: {
-    width: '1.75rem', height: '2.75rem',
-    border: '2px solid rgba(0,217,255,0.4)',
-    borderRadius: '9999px', display: 'flex', justifyContent: 'center',
-  },
-  scrollInner: {
-    width: '0.3rem', height: '0.875rem',
-    background: 'linear-gradient(to bottom, #00d9ff, #b026ff)',
-    borderRadius: '9999px', marginTop: '0.5rem',
-  },
-}
+const SCAN_LINES = [
+  { id: 1, sev: 'critical', icon: Shield, text: 'innerHTML — XSS risk on line 4', fix: '→ textContent' },
+  { id: 2, sev: 'medium', icon: Bug, text: '== loose equality on line 3', fix: '→ ===' },
+  { id: 3, sev: 'low', icon: Zap, text: 'var on line 2', fix: '→ const' },
+]
+
+const CODE = `// auth.js — before Optivix
+var user = getInput()
+if (user == null) {
+  el.innerHTML = user.name
+  console.log('debug', user)
+}`
+
+const FIXED = `// auth.js — after auto-fix ✓
+const user = getInput()
+if (user === null) {
+  el.textContent = user.name
+  // console.log removed
+}`
 
 export default function AnimatedHero() {
+  const [phase, setPhase] = useState(0)
+  const [showFixed, setShowFixed] = useState(false)
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 800)
+    const t2 = setTimeout(() => setPhase(2), 2200)
+    const t3 = setTimeout(() => setPhase(3), 3600)
+    const t4 = setTimeout(() => setShowFixed(true), 4200)
+    const loop = setInterval(() => {
+      setPhase(0)
+      setShowFixed(false)
+      setTimeout(() => setPhase(1), 400)
+      setTimeout(() => setPhase(2), 1800)
+      setTimeout(() => setPhase(3), 3200)
+      setTimeout(() => setShowFixed(true), 3800)
+    }, 9000)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
+      clearTimeout(t4)
+      clearInterval(loop)
+    }
+  }, [])
+
   return (
-    <section style={S.section}>
-      {/* Orbs */}
-      <motion.div style={S.orb1}
-        animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} />
-      <motion.div style={S.orb2}
-        animate={{ scale: [1.3, 1, 1.3], opacity: [0.5, 0.3, 0.5] }}
-        transition={{ duration: 10, repeat: Infinity, delay: 3, ease: "easeInOut" }} />
-      <motion.div style={S.orb3}
-        animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.4, 0.2] }}
-        transition={{ duration: 12, repeat: Infinity, delay: 1.5, ease: "easeInOut" }} />
+    <section
+      style={{
+        position: 'relative',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        paddingTop: '7rem',
+        paddingBottom: '5rem',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Grid */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: `
+            linear-gradient(var(--ide-grid-line) 1px, transparent 1px),
+            linear-gradient(90deg, var(--ide-grid-line) 1px, transparent 1px)
+          `,
+          backgroundSize: '56px 56px',
+          maskImage: 'radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 72%)',
+          WebkitMaskImage: 'radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 72%)',
+          pointerEvents: 'none',
+        }}
+      />
 
-      {/* Content */}
-      <div style={S.content}>
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          transition={{ duration: 1, ease: "easeOut" }}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          width: '100%',
+          maxWidth: '76rem',
+          margin: '0 auto',
+          padding: '0 1.25rem',
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          gap: '3.5rem',
+          alignItems: 'center',
+        }}
+        className="hero-grid"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
         >
-
-          {/* Badge */}
-          <motion.div 
-            style={S.badge} 
-            whileHover={{ scale: 1.08, boxShadow: '0 0 40px rgba(0,217,255,0.3)' }}
-            transition={{ duration: 0.2 }}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.1 }}
+            className="section-eyebrow"
+            style={{ marginBottom: '1.5rem' }}
           >
-            <Sparkles style={{ width: '1.125rem', height: '1.125rem', color: '#00d9ff' }} />
-            <span style={S.badgeText}>The Future of AI-Powered Development</span>
+            <Sparkles className="section-eyebrow__icon" />
+            <span>AI-native · Local-first · Self-healing</span>
           </motion.div>
 
-          {/* Headline — 3 lines max */}
-          <motion.h1 
-            style={{ ...S.h1, fontSize: 'clamp(2.25rem, 6vw, 4.5rem)' }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+          <h1
+            className="font-display"
+            style={{
+              fontSize: 'clamp(2.5rem, 6vw, 4rem)',
+              fontWeight: 800,
+              lineHeight: 1.05,
+              letterSpacing: '-0.04em',
+              marginBottom: '1.5rem',
+              color: 'var(--landing-text)',
+            }}
           >
-            <span style={{ display: 'block', color: '#fff' }}>Build the Future</span>
-            <span style={S.gradLine}>With AI That Understands</span>
-            <span style={{ display: 'block', marginTop: '0.5rem', color: '#fff' }}>Your Code</span>
-          </motion.h1>
+            Code that{' '}
+            <span className="text-accent">fixes itself</span>
+            <br />
+            while you build.
+          </h1>
 
-          {/* Subtitle */}
-          <motion.p 
-            style={S.subtitle}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
+          <p
+            style={{
+              fontSize: '1.125rem',
+              lineHeight: 1.8,
+              color: 'var(--landing-muted)',
+              maxWidth: '32rem',
+              marginBottom: '2.25rem',
+            }}
           >
-            Optivix is the world&apos;s first self-healing development environment that detects,
-            analyzes, and fixes code issues in real-time — transforming how developers build software.
-          </motion.p>
+            Not another chatbot wrapper — a real IDE that scans bugs, patches SEO, audits live websites, and runs entirely on{' '}
+            <strong style={{ color: 'var(--landing-text)', fontWeight: 600 }}>your stack</strong>.
+          </p>
 
-          {/* Buttons */}
-          <motion.div 
-            style={S.btnRow}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.6 }}
-          >
-            <motion.div 
-              whileHover={{ scale: 1.03 }} 
-              whileTap={{ scale: 0.98 }}
-              transition={{ duration: 0.2 }}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '2.75rem' }}>
+            <Link href="/ide" className="btn-primary">
+              Launch IDE
+              <ArrowRight style={{ width: 18, height: 18 }} />
+            </Link>
+            <a
+              href="#workflow"
+              className="btn-secondary"
+              onClick={(e) => {
+                e.preventDefault()
+                document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth' })
+              }}
             >
-              <Link href="/ide" style={{
-                ...S.btnPrimary,
-                transition: 'all 0.3s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,217,255,0.3)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,217,255,0.3)'
-              }}
+              <Play style={{ width: 16, height: 16, color: 'var(--landing-accent)' }} />
+              See workflow
+            </a>
+          </div>
+
+          <motion.div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '2rem',
+              paddingTop: '1.75rem',
+              borderTop: '1px solid var(--landing-border)',
+            }}
+          >
+            {[
+              { n: '<12ms', l: 'avg fix time' },
+              { n: '0', l: 'cloud AI keys' },
+              { n: '4-in-1', l: 'scan · fix · SEO · audit' },
+            ].map((s, i) => (
+              <motion.div
+                key={s.l}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + i * 0.1 }}
               >
-                Start Building Free
-                <ArrowRight style={{ width: '1.25rem', height: '1.25rem' }} />
-              </Link>
-            </motion.div>
-            <motion.div 
-              whileHover={{ scale: 1.02 }} 
-              whileTap={{ scale: 0.98 }}
-              transition={{ duration: 0.2 }}
+                <motion.div className="font-mono text-accent" style={{ fontSize: '1.5rem', fontWeight: 800 }}>
+                  {s.n}
+                </motion.div>
+                <div style={{ fontSize: '12px', color: 'var(--landing-dim)', marginTop: 4 }}>{s.l}</div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.85, delay: 0.2 }}
+          style={{ position: 'relative' }}
+        >
+          <div
+            className="landing-card"
+            style={{
+              overflow: 'hidden',
+              boxShadow: 'var(--landing-shadow-lg)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                borderBottom: '1px solid var(--landing-border)',
+                background: 'var(--ide-hero-panel)',
+              }}
             >
-              <a
-                href="#features"
-                onClick={e => { e.preventDefault(); document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' }) }}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['#ef4444', '#f59e0b', '#4ade80'].map((c) => (
+                  <span key={c} style={{ width: 10, height: 10, borderRadius: '50%', background: c }} />
+                ))}
+              </div>
+              <span className="font-mono" style={{ fontSize: 11, color: 'var(--landing-dim)' }}>
+                auth.js — Optivix IDE
+              </span>
+              <motion.span
+                animate={{ opacity: phase >= 3 ? [1, 0.5, 1] : 0.6 }}
+                transition={{ duration: 1, repeat: phase >= 3 ? Infinity : 0 }}
+                className="font-mono"
                 style={{
-                  ...S.btnSecondary,
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(0,217,255,0.8)'
-                  e.currentTarget.style.background = 'rgba(0,217,255,0.1)'
-                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,217,255,0.2)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(0,217,255,0.5)'
-                  e.currentTarget.style.background = 'rgba(0,217,255,0.05)'
-                  e.currentTarget.style.boxShadow = '0 0 0 rgba(0,217,255,0)'
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: showFixed ? 'var(--landing-success)' : 'var(--landing-accent-bright)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
                 }}
               >
-                See How It Works
-              </a>
-            </motion.div>
-          </motion.div>
+                {showFixed ? 'fixed ✓' : phase >= 1 ? 'scanning…' : 'idle'}
+              </motion.span>
+            </div>
 
+            <div className="hero-ide-inner" style={{ display: 'grid', gridTemplateColumns: '1fr 200px', minHeight: 280 }}>
+              <div style={{ position: 'relative', padding: 16, borderRight: '1px solid var(--landing-border)' }}>
+                <AnimatePresence mode="wait">
+                  <motion.pre
+                    key={showFixed ? 'fixed' : 'buggy'}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.35 }}
+                    className="font-mono"
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      lineHeight: 1.7,
+                      color: 'var(--landing-muted)',
+                      whiteSpace: 'pre-wrap',
+                    }}
+                  >
+                    {(showFixed ? FIXED : CODE).split('\n').map((line, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 12 }}>
+                        <span style={{ color: 'var(--landing-dim)', userSelect: 'none', width: 16, textAlign: 'right' }}>{i + 1}</span>
+                        <span
+                          style={{
+                            color: line.includes('innerHTML') || line.includes('==')
+                              ? 'var(--landing-danger)'
+                              : line.includes('var') || line.includes('console')
+                                ? 'var(--landing-warning)'
+                                : line.includes('const') || line.includes('textContent') || line.includes('===')
+                                  ? 'var(--landing-success)'
+                                  : 'var(--landing-text)',
+                          }}
+                        >
+                          {line}
+                        </span>
+                      </div>
+                    ))}
+                  </motion.pre>
+                </AnimatePresence>
+
+                {phase >= 1 && phase < 3 && (
+                  <motion.div
+                    initial={{ top: '10%' }}
+                    animate={{ top: ['10%', '85%'] }}
+                    transition={{ duration: 2, ease: 'linear' }}
+                    style={{
+                      position: 'absolute',
+                      left: 16,
+                      right: 16,
+                      height: 2,
+                      background: 'var(--landing-accent)',
+                      boxShadow: '0 0 12px rgba(var(--landing-accent-rgb), 0.5)',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+              </div>
+
+              <div style={{ padding: 12, background: 'var(--landing-bg-soft)' }}>
+                <div className="font-mono" style={{ fontSize: 10, fontWeight: 700, color: 'var(--landing-dim)', marginBottom: 10, letterSpacing: '0.06em' }}>
+                  AI ANALYSIS
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {SCAN_LINES.map((item, i) => {
+                    const Icon = item.icon
+                    const visible = phase > i
+                    const fixed = showFixed
+                    return (
+                      <AnimatePresence key={item.id}>
+                        {visible && (
+                          <motion.div
+                            initial={{ opacity: 0, x: 12 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            style={{
+                              padding: 8,
+                              borderRadius: 8,
+                              fontSize: 10,
+                              lineHeight: 1.4,
+                              border: `1px solid ${
+                                item.sev === 'critical'
+                                  ? 'rgba(248,113,113,0.35)'
+                                  : item.sev === 'medium'
+                                    ? 'rgba(251,191,36,0.35)'
+                                    : 'rgba(129,140,248,0.35)'
+                              }`,
+                              background: fixed ? 'rgba(74,222,128,0.08)' : 'var(--landing-row-bg)',
+                              opacity: fixed ? 0.6 : 1,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                              {fixed ? (
+                                <CheckCircle2 style={{ width: 12, height: 12, color: 'var(--landing-success)' }} />
+                              ) : (
+                                <Icon style={{ width: 12, height: 12, color: item.sev === 'critical' ? 'var(--landing-danger)' : 'var(--landing-warning)' }} />
+                              )}
+                              <span style={{ color: 'var(--landing-muted)' }}>{item.text}</span>
+                            </div>
+                            {fixed && (
+                              <span className="font-mono" style={{ color: 'var(--landing-success)' }}>{item.fix}</span>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="font-mono"
+              style={{
+                padding: '10px 16px',
+                borderTop: '1px solid var(--landing-border)',
+                background: 'var(--ide-hero-panel)',
+                fontSize: 11,
+                color: showFixed ? 'var(--landing-success)' : 'var(--landing-dim)',
+              }}
+            >
+              {showFixed
+                ? '> 3 issues fixed · file saved · health 94%'
+                : phase >= 2
+                  ? '> analyzing auth.js… 3 issues found'
+                  : '> optivix ready — waiting for input'}
+            </div>
+          </div>
+
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              top: -14,
+              right: -10,
+              padding: '8px 14px',
+              borderRadius: 10,
+              background: 'var(--landing-surface)',
+              border: '1px solid var(--landing-border)',
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'var(--landing-muted)',
+              backdropFilter: 'blur(12px)',
+            }}
+          >
+            Live demo — no API key
+          </motion.div>
         </motion.div>
       </div>
 
-      {/* Scroll indicator */}
-      <motion.div 
-        style={S.scrollDot} 
-        animate={{ y: [0, 12, 0] }} 
-        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-      >
-        <div style={S.scrollRing}>
-          <motion.div style={S.scrollInner}
-            animate={{ y: [0, 14, 0] }} 
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} />
-        </div>
-      </motion.div>
+      <style jsx global>{`
+        @media (min-width: 960px) {
+          .hero-grid {
+            grid-template-columns: 1fr 1.05fr !important;
+            gap: 4rem !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .hero-ide-inner {
+            grid-template-columns: 1fr !important;
+          }
+          .hero-ide-inner > div:first-child {
+            border-right: none !important;
+            border-bottom: 1px solid var(--landing-border);
+          }
+        }
+      `}</style>
     </section>
   )
 }
