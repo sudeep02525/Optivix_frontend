@@ -827,3 +827,5 @@ input::placeholder, textarea::placeholder { color: var(--landing-dim); }
   background: var(--landing-accent);
   border-radius: 3px;
 }
+
+@import "../styles/auth.css";

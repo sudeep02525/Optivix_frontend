@@ -3,178 +3,45 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, AlertTriangle, CheckCircle, Brain, Info, Sparkles } from 'lucide-react'
+import {
+  analyzeCodeForIssues,
+  applyLocalFix,
+  checkIncompleteSource,
+  computeHealthScore,
+  mergeAnalysisIssues,
+  MIN_CODE_LENGTH_FOR_SCAN,
+} from '@/lib/codeAnalyzer'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-
-// ── Real code analyzer ────────────────────────────────────────────────────────
-function analyzeCodeForIssues(code, fileType = 'javascript') {
-  if (!code || code.trim().length < 10) return []
-  const issues = []
-  const lines = code.split('\n')
-
-  // ── JavaScript / TypeScript / JSX ──
-  if (['javascript', 'js', 'jsx', 'typescript', 'ts', 'tsx'].includes(fileType)) {
-    lines.forEach((line, i) => {
-      const n = i + 1
-      const t = line.trim()
-
-      if (/console\.(log|warn|error|debug|info|table|trace)\(/.test(t) && !t.startsWith('//'))
-        issues.push({ id:`bug-con-${n}`, type:'bug', severity:'low', line:n,
-          title:'console left in code',
-          description:`Line ${n}: console statements should not be in production. They can leak sensitive data and slow down performance.`,
-          fix:'Remove all console statements or use a proper logging library.' })
-
-      if (/([^=!])==([^=])/.test(line) && !t.startsWith('//') && !t.startsWith('*'))
-        issues.push({ id:`bug-eq-${n}`, type:'bug', severity:'medium', line:n,
-          title:'Loose equality (==)',
-          description:`Line ${n}: == performs type coercion. Prefer === for strict checks.`,
-          fix:'Replace == with === when both sides should be same type.' })
-
-      if (/^\s*var\s+/.test(line))
-        issues.push({ id:`bug-var-${n}`, type:'bug', severity:'low', line:n,
-          title:'🐛 Using var instead of let/const',
-          description:`Line ${n}: var has function scope and can cause hoisting bugs. Modern JavaScript uses let/const.`,
-          fix:'Replace var with const (for values that don\'t change) or let (for values that change).' })
-
-      if (/\.innerHTML\s*=/.test(t) && !t.startsWith('//'))
-        issues.push({ id:`sec-ih-${n}`, type:'security', severity:'critical', line:n,
-          title:'🔒 innerHTML — XSS Attack Risk!',
-          description:`Line ${n}: Setting innerHTML with user data allows attackers to inject malicious scripts (XSS attacks).`,
-          fix:'Use textContent for plain text, or use React JSX which auto-escapes content.' })
-
-      if (/\beval\s*\(/.test(t) && !t.startsWith('//'))
-        issues.push({ id:`sec-ev-${n}`, type:'security', severity:'critical', line:n,
-          title:'🔒 eval() — Never use this!',
-          description:`Line ${n}: eval() executes any string as code, making it extremely dangerous and a major security vulnerability.`,
-          fix:'Remove eval(). Use JSON.parse() for JSON, or refactor your code logic.' })
-
-      if (/(password|secret|api_key|apikey|token|private_key)\s*=\s*['"`][^'"`]{3,}/i.test(t) && !t.startsWith('//'))
-        issues.push({ id:`sec-pw-${n}`, type:'security', severity:'critical', line:n,
-          title:'🔒 Hardcoded Secret/Password!',
-          description:`Line ${n}: Hardcoding secrets in source code is extremely dangerous. They can be exposed on GitHub or in client-side code.`,
-          fix:'Move all secrets to environment variables (.env file) and add .env to .gitignore.' })
-
-      if (/fetch\s*\(\s*['"`]http:\/\//.test(t) && !t.startsWith('//'))
-        issues.push({ id:`sec-http-${n}`, type:'security', severity:'high', line:n,
-          title:'🔒 Using HTTP instead of HTTPS',
-          description:`Line ${n}: HTTP transmits data unencrypted, making it vulnerable to man-in-the-middle attacks.`,
-          fix:'Always use https:// for API calls and external resources.' })
-
-      if (/SELECT|INSERT|UPDATE|DELETE/i.test(t) && (/\+\s*\w+|"\s*\+|'[\s]*\+/.test(t)) && !t.startsWith('//'))
-        issues.push({ id:`sec-sql-${n}`, type:'security', severity:'critical', line:n,
-          title:'🔒 SQL injection risk',
-          description:`Line ${n}: Building SQL with string concatenation allows attackers to inject malicious queries.`,
-          fix:'Use parameterized queries: db.prepare(\'SELECT * FROM users WHERE id = ?\').get(userId)' })
-
-      if (/JSON\.stringify/.test(t) && !t.startsWith('//') && /return|render|\{/.test(t))
-        issues.push({ id:`pf-json-${n}`, type:'performance', severity:'medium', line:n,
-          title:'⚡ JSON.stringify in render',
-          description:`Line ${n}: JSON.stringify is expensive and runs on every render, causing performance issues.`,
-          fix:'Wrap in useMemo: const stringified = useMemo(() => JSON.stringify(data), [data])' })
-
-      if (/\.map\s*\(\s*\(.*,\s*index\s*\)/.test(t) || /key=\{index\}/.test(t))
-        issues.push({ id:`pf-key-${n}`, type:'performance', severity:'medium', line:n,
-          title:'⚡ Using array index as React key',
-          description:`Line ${n}: Using index as key causes React to re-render incorrectly when items are added/removed/reordered.`,
-          fix:'Use a unique identifier: key={item.id} or key={item.uniqueField}' })
-
-      if (/setTimeout|setInterval/.test(t) && !t.startsWith('//') && !/clearTimeout|clearInterval/.test(code))
-        issues.push({ id:`bug-timer-${n}`, type:'bug', severity:'medium', line:n,
-          title:'🐛 Timer not cleaned up',
-          description:`Line ${n}: Timers should be cleared to prevent memory leaks, especially in React components.`,
-          fix:'Store timer ID and clear it: const id = setTimeout(...); return () => clearTimeout(id);' })
-    })
-
-    const effectCount = (code.match(/useEffect\s*\(/g)||[]).length
-    const depsCount   = (code.match(/useEffect\s*\([^)]+,\s*\[/g)||[]).length
-    if (effectCount > depsCount)
-      issues.push({ id:'bug-eff', type:'bug', severity:'high', line:null,
-        title:'🐛 useEffect missing dependency array',
-        description:'useEffect without dependencies runs on every render, causing infinite loops and performance issues.',
-        fix:'Add dependency array: useEffect(() => {...}, [dependencies])' })
-
-    const asyncCount = (code.match(/async\s+function|async\s*\(/g)||[]).length
-    const tryCount   = (code.match(/try\s*\{/g)||[]).length
-    if (asyncCount > 0 && tryCount === 0)
-      issues.push({ id:'bug-try', type:'bug', severity:'high', line:null,
-        title:'🐛 Async function without error handling',
-        description:`${asyncCount} async function(s) found but no try-catch. Unhandled promise rejections will crash your app.`,
-        fix:'Wrap async code in try-catch: try { await fetch(...) } catch (error) { console.error(error) }' })
-  }
-
-  // ── JSON Analysis ──
-  if (fileType === 'json') {
-    try {
-      JSON.parse(code)
-      // Valid JSON - no issues
-    } catch (e) {
-      issues.push({ id:'json-invalid', type:'bug', severity:'critical', line:null,
-        title:'🐛 Invalid JSON syntax',
-        description:`JSON parsing error: ${e.message}`,
-        fix:'Fix JSON syntax errors. Common issues: trailing commas, unquoted keys, single quotes instead of double quotes.' })
-    }
-  }
-
-  // ── CSS Analysis ──
-  if (fileType === 'css') {
-    lines.forEach((line, i) => {
-      const n = i + 1
-      const t = line.trim()
-      
-      if (/!important/.test(t))
-        issues.push({ id:`css-imp-${n}`, type:'bug', severity:'low', line:n,
-          title:'⚠️ Using !important',
-          description:`Line ${n}: !important makes CSS hard to maintain and override. It's usually a sign of poor CSS architecture.`,
-          fix:'Refactor CSS to use proper specificity instead of !important.' })
-
-      if (/color:\s*#[0-9a-f]{3}(?![0-9a-f])/i.test(t))
-        issues.push({ id:`css-color-${n}`, type:'performance', severity:'low', line:n,
-          title:'⚡ Use 6-digit hex colors',
-          description:`Line ${n}: 3-digit hex colors are less precise. Use 6-digit for consistency.`,
-          fix:'Convert #abc to #aabbcc for better color accuracy.' })
-    })
-  }
-
-  // ── HTML Analysis ──
-  if (fileType === 'html') {
-    const imgWithoutAlt = (code.match(/<img(?![^>]*\balt=)[^>]*>/gi) || []).length
-    if (imgWithoutAlt > 0)
-      issues.push({ id:'html-img-alt', type:'bug', severity:'high', line:null,
-        title:`🐛 ${imgWithoutAlt} image(s) missing alt text`,
-        description:'Images without alt text fail accessibility standards and hurt SEO.',
-        fix:'Add descriptive alt text to all images: <img src="..." alt="Description of image">' })
-
-    if (!/<title[^>]*>[^<]+<\/title>/i.test(code))
-      issues.push({ id:'html-title', type:'bug', severity:'critical', line:null,
-        title:'🐛 Missing <title> tag',
-        description:'Every HTML page must have a title tag for SEO and browser tabs.',
-        fix:'Add <title>Your Page Title</title> inside <head>.' })
-
-    if (!/<meta[^>]+name=["']description["']/i.test(code))
-      issues.push({ id:'html-desc', type:'bug', severity:'high', line:null,
-        title:'🐛 Missing meta description',
-        description:'Meta description is crucial for SEO and search engine snippets.',
-        fix:'Add <meta name="description" content="Your page description"> in <head>.' })
-  }
-
-  const seen = new Set()
-  return issues.filter(i => { const k=`${i.type}-${i.line}-${i.title}`; if(seen.has(k))return false; seen.add(k); return true })
-}
-// ─────────────────────────────────────────────────────────────────────────────
+const SCAN_MODE_KEY = 'optivix_scan_mode'
 
 export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode, onRunFix, onCodeChange, onAnalysisUpdate }) {
   const [issues, setIssues]         = useState([])
-  const [healthScore, setHealthScore] = useState(100)
+  const [healthScore, setHealthScore] = useState(null)
   const [analyzing, setAnalyzing]   = useState(false)
+  const [scanStatus, setScanStatus] = useState('empty')
   const [fileType, setFileType]     = useState('javascript')
   const [aiModel, setAiModel]       = useState(null)
   const [useRealAI, setUseRealAI]   = useState(true)
   const [aiError, setAiError]       = useState(null)
   const [hasAuthToken, setHasAuthToken] = useState(false)
   const [fixingId, setFixingId]     = useState(null)
+  const [backendOnline, setBackendOnline] = useState(null)
 
   useEffect(() => {
     setHasAuthToken(!!(localStorage.getItem('nexus_token') || localStorage.getItem('token')))
+    const saved = localStorage.getItem(SCAN_MODE_KEY)
+    if (saved === 'local') setUseRealAI(false)
+    if (saved === 'backend') setUseRealAI(true)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_URL}/api/ai/health`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(() => { if (!cancelled) setBackendOnline(true) })
+      .catch(() => { if (!cancelled) setBackendOnline(false) })
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -186,18 +53,24 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
     setFixingId(issue.id)
     const token = localStorage.getItem('nexus_token') || localStorage.getItem('token')
     try {
-      if (token) {
+      if (token && useRealAI) {
         const res = await fetch(`${API_URL}/api/ai/fix`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ code, issue, language: fileType }),
         })
         const data = await res.json()
-        if (res.ok && data.fixedCode) {
+        if (res.ok && data.fixedCode && data.fixedCode !== code) {
           onCodeChange(data.fixedCode)
           if (data.aiModel) setAiModel(data.aiModel)
           return
         }
+      }
+      const locallyFixed = applyLocalFix(code, issue, fileType, fileName)
+      if (locallyFixed !== code) {
+        onCodeChange(locallyFixed)
+        setAiModel(useRealAI ? 'Fixed in editor (local)' : 'Quick Scan fix')
+        return
       }
       if (onRunFix) onRunFix('bugs')
     } finally {
@@ -272,11 +145,31 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
   }, [code, fileName])
 
   useEffect(() => {
-    if (!code || code.trim().length < 10) { setIssues([]); setHealthScore(100); return }
-    
-    setAnalyzing(true)
+    const trimmed = (code || '').trim()
     setAiError(null)
-    
+
+    if (!trimmed) {
+      setIssues([])
+      setHealthScore(null)
+      setScanStatus('empty')
+      setAnalyzing(false)
+      setAiModel(null)
+      return
+    }
+
+    if (trimmed.length < MIN_CODE_LENGTH_FOR_SCAN) {
+      setIssues([])
+      setHealthScore(null)
+      setScanStatus('too_short')
+      setAnalyzing(false)
+      setAiModel(null)
+      return
+    }
+
+    setAnalyzing(true)
+    setScanStatus('scanning')
+    setIssues([])
+
     let cancelled = false
     const token = typeof window !== 'undefined'
       ? (localStorage.getItem('nexus_token') || localStorage.getItem('token'))
@@ -284,15 +177,12 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
 
     const applyLocal = () => {
       if (cancelled) return
-      const found = analyzeCodeForIssues(code, fileType)
-      setIssues(found)
-      const c = found.filter(i=>i.severity==='critical').length
-      const h = found.filter(i=>i.severity==='high').length
-      const m = found.filter(i=>i.severity==='medium').length
-      const l = found.filter(i=>i.severity==='low').length
-      setHealthScore(Math.max(0, 100 - c*25 - h*15 - m*7 - l*2))
+      const result = analyzeCodeForIssues(code, fileType, fileName)
+      setIssues(result.issues)
+      setHealthScore(result.score)
+      setScanStatus(result.status === 'ok' ? 'done' : result.status)
       setAnalyzing(false)
-      setAiModel(null)
+      setAiModel('Quick Scan · detect only')
     }
 
     if (token && useRealAI) {
@@ -302,9 +192,9 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ code, language: fileType })
+            body: JSON.stringify({ code, language: fileType, fileName: fileName || '' }),
           })
           const data = await res.json()
           if (cancelled) return
@@ -316,25 +206,46 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
           }
 
           if (res.ok && Array.isArray(data.issues)) {
-            setIssues(data.issues)
-            setHealthScore(typeof data.score === 'number' ? data.score : 50)
-            setAiModel(data.aiModel || 'Server')
+            const structural = checkIncompleteSource(code, fileName)
+            const merged = mergeAnalysisIssues(data.issues, structural)
+            setIssues(merged)
+            setHealthScore(
+              merged.length > 0
+                ? computeHealthScore(merged)
+                : typeof data.score === 'number'
+                  ? data.score
+                  : 100
+            )
+            setAiModel(data.aiModel ? `${data.aiModel} · scan only` : 'Backend · scan only')
+            setScanStatus('done')
             setAnalyzing(false)
+            setBackendOnline(true)
           } else {
             throw new Error(data.error || 'Analysis failed')
           }
         } catch (error) {
           console.error('AI Analysis error:', error)
-          if (!cancelled) setAiError('Server unavailable — using local scan')
+          if (!cancelled) {
+            setAiError('Backend offline — using Quick Scan. Start Optivix_backend on port 5000.')
+            setBackendOnline(false)
+          }
           applyLocal()
         }
       })()
       return () => { cancelled = true }
     }
 
-    const t = setTimeout(applyLocal, 450)
+    const t = setTimeout(applyLocal, 180)
     return () => { cancelled = true; clearTimeout(t) }
   }, [code, fileType, useRealAI])
+
+  const toggleScanMode = () => {
+    setUseRealAI((prev) => {
+      const next = !prev
+      localStorage.setItem(SCAN_MODE_KEY, next ? 'backend' : 'local')
+      return next
+    })
+  }
 
   const severityColors = {
     critical: { bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.35)',  text: '#f87171' },
@@ -350,68 +261,79 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
     return <Info style={{ width:14, height:14, color:c, flexShrink:0 }} />
   }
 
-  const healthColor = healthScore >= 80 ? '#4ade80'
-                    : healthScore >= 60 ? '#fbbf24'
-                    : healthScore >= 40 ? accent
-                    : '#f87171'
+  const scoreReady = typeof healthScore === 'number'
+  const hasOpenIssues = issues.length > 0 && scanStatus === 'done'
 
-  const healthLabel = healthScore >= 80 ? '✅ Good'
-                    : healthScore >= 60 ? '⚠️ Fair'
-                    : healthScore >= 40 ? '🔴 Has Issues'
-                    : '🚨 Critical Issues'
+  const healthColor = !scoreReady
+    ? textDim
+    : hasOpenIssues
+      ? healthScore >= 60
+        ? '#fbbf24'
+        : '#f87171'
+      : healthScore >= 80
+        ? '#4ade80'
+        : healthScore >= 60
+          ? '#fbbf24'
+          : healthScore >= 40
+            ? accent
+            : '#f87171'
 
-  const secScore  = Math.max(0, 100 - issues.filter(i=>i.type==='security').length * 25)
-  const perfScore = Math.max(0, 100 - issues.filter(i=>i.type==='performance').length * 15)
+  const healthLabel = scanStatus === 'empty'
+    ? 'Editor empty'
+    : scanStatus === 'too_short'
+      ? `Need ${MIN_CODE_LENGTH_FOR_SCAN}+ characters`
+      : analyzing
+        ? 'Scanning…'
+        : !scoreReady
+          ? '—'
+          : hasOpenIssues
+            ? `🔴 ${issues.length} issue(s) — click Fix below`
+            : healthScore >= 80
+              ? '✅ No issues detected'
+              : healthScore >= 60
+                ? '⚠️ Fair'
+                : '🔴 Has Issues'
+
+  const secScore  = scoreReady ? Math.max(0, 100 - issues.filter(i=>i.type==='security').length * 25) : null
+  const perfScore = scoreReady ? Math.max(0, 100 - issues.filter(i=>i.type==='performance').length * 15) : null
 
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-      background: panelBg, border: `1px solid ${border}`, borderRadius: 12,
-      overflow: 'hidden', color: textMain,
+      background: panelBg, overflow: 'hidden', color: textMain,
     }}>
-      {/* Header */}
-      <div style={{ padding: '10px 14px', borderBottom: `1px solid ${divider}`, background: headerBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Brain style={{ width: 15, height: 15, color: accent }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: accent }}>
-            AI Analysis
-          </span>
-          {aiModel && (
-            <span style={{ fontSize: 10, color: accent, background: 'rgba(91,156,245,0.1)', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>
-              {aiModel}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ padding: '10px 12px', borderBottom: `1px solid ${divider}`, background: headerBg, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <Brain style={{ width: 14, height: 14, color: accent, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: textMain }}>Analysis</span>
+            {aiModel && (
+              <span style={{ fontSize: 9, color: accent, background: 'var(--landing-accent-soft)', padding: '2px 6px', borderRadius: 4, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
+                {aiModel}
+              </span>
+            )}
+          </div>
           {hasAuthToken && (
             <button
-              onClick={() => setUseRealAI(!useRealAI)}
-              title={useRealAI ? 'Using backend local AI' : 'Browser-only scan'}
+              type="button"
+              onClick={toggleScanMode}
               style={{
-                fontSize: 10,
-                padding: '4px 8px',
-                borderRadius: 6,
-                border: 'none',
-                background: useRealAI ? accent : 'rgba(91,156,245,0.15)',
-                color: useRealAI ? '#0c0c0c' : textMid,
-                cursor: 'pointer',
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4
+                fontSize: 10, padding: '4px 8px', borderRadius: 6, border: `1px solid ${border}`,
+                background: useRealAI ? accent : 'transparent',
+                color: useRealAI ? 'var(--landing-btn-text)' : textMid,
+                cursor: 'pointer', fontWeight: 600, flexShrink: 0,
               }}
             >
-              <Sparkles style={{ width: 10, height: 10 }} />
-              {useRealAI ? 'Server' : 'Local'}
+              {useRealAI ? 'AI' : 'Quick'}
             </button>
           )}
-          {analyzing && <span style={{ fontSize: 11, color: textDim }}>scanning...</span>}
         </div>
+        {analyzing && <div style={{ fontSize: 10, color: textDim }}>Scanning…</div>}
       </div>
 
-      {aiError && (
-        <div style={{ padding: '8px 12px', background: 'rgba(249,115,22,0.1)', borderBottom: `1px solid ${divider}` }}>
-          <span style={{ fontSize: 11, color: '#fb923c' }}>⚠️ {aiError}</span>
+      {(aiError || (useRealAI && backendOnline === false)) && (
+        <div style={{ padding: '6px 12px', background: 'rgba(249,115,22,0.08)', borderBottom: `1px solid ${divider}`, fontSize: 10, color: '#fb923c' }}>
+          ⚠️ {aiError || 'Start backend: Optivix_backend npm run dev'}
         </div>
       )}
 
@@ -421,13 +343,13 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: textMid }}>Code Health</span>
             <span style={{ fontSize: 18, fontWeight: 800, color: healthColor }}>
-              {healthScore}%
+              {scoreReady ? `${healthScore}%` : '—'}
             </span>
           </div>
           <div style={{ fontSize: 11, color: textDim, marginBottom: 8 }}>{healthLabel}</div>
           <div style={{ height: 6, background: barBg, borderRadius: 99, overflow: 'hidden' }}>
             <motion.div
-              animate={{ width: `${healthScore}%` }}
+              animate={{ width: scoreReady ? `${healthScore}%` : '0%' }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
               style={{ height: '100%', background: healthColor, borderRadius: 99 }}
             />
@@ -435,11 +357,11 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
             <div style={{ padding: '8px 10px', borderRadius: 8, background: scoreBg1, border: `1px solid rgba(91,156,245,0.2)` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>{secScore}%</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>{secScore != null ? `${secScore}%` : '—'}</div>
               <div style={{ fontSize: 10, color: textDim }}>Security</div>
             </div>
             <div style={{ padding: '8px 10px', borderRadius: 8, background: scoreBg2, border: `1px solid rgba(91,156,245,0.15)` }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>{perfScore}%</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>{perfScore != null ? `${perfScore}%` : '—'}</div>
               <div style={{ fontSize: 10, color: textDim }}>Performance</div>
             </div>
           </div>
@@ -456,11 +378,23 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
               />
               <span style={{ fontSize: 11, color: textDim }}>Analyzing code...</span>
             </div>
+          ) : scanStatus === 'empty' || scanStatus === 'too_short' ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', textAlign: 'center' }}>
+              <Info style={{ width: 32, height: 32, color: textDim, marginBottom: 10 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: textMid }}>
+                {scanStatus === 'empty' ? 'Start typing to scan' : `Type at least ${MIN_CODE_LENGTH_FOR_SCAN} characters`}
+              </span>
+              <span style={{ fontSize: 11, color: textDim, marginTop: 4 }}>
+                Score is not shown until there is enough code to analyze
+              </span>
+            </div>
           ) : issues.length === 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', textAlign: 'center' }}>
               <CheckCircle style={{ width: 36, height: 36, color: '#4ade80', marginBottom: 10 }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#4ade80' }}>No issues found!</span>
-              <span style={{ fontSize: 11, color: textDim, marginTop: 4 }}>{fileType.toUpperCase()} · looks good</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#4ade80' }}>No issues found</span>
+              <span style={{ fontSize: 11, color: textDim, marginTop: 4 }}>
+                {useRealAI ? 'Backend AI' : 'Quick Scan'} · {fileType.toUpperCase()} · no rule matches
+              </span>
             </div>
           ) : (
             <>
@@ -516,7 +450,7 @@ export default function AIAnalysisPanel({ code, fileName, isHealing, isDarkMode,
               cursor: isHealing ? 'wait' : 'pointer', opacity: isHealing ? 0.6 : 1,
             }}
           >
-            Apply bug fixes
+            Fix all in editor
           </button>
           {(fileType === 'html' || issues.some(i => String(i.id || '').startsWith('html'))) && (
             <button

@@ -1,32 +1,153 @@
 'use client'
 
-import { useState } from 'react'
+import '@/styles/auth.css'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, User, Mail, Lock, ArrowRight, Loader, ArrowLeft } from 'lucide-react'
-import ThemeToggle from '@/components/ThemeToggle'
+import {
+  Eye,
+  EyeOff,
+  User,
+  Mail,
+  Lock,
+  ArrowRight,
+  Loader,
+  ArrowLeft,
+  Shield,
+  Sparkles,
+  Code2,
+} from 'lucide-react'
 import BrandLogo from '@/components/BrandLogo'
 
 const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api/auth'
 
+const FEATURES = [
+  { icon: Code2, title: 'AI-powered IDE', desc: 'Fix bugs, SEO, and analyze code in one workspace' },
+  { icon: Sparkles, title: '30-day free trial', desc: 'Unlimited AI during your welcome period' },
+  { icon: Shield, title: 'Verified signup', desc: 'OTP on your email when you create an account' },
+]
+
+function OtpInput({ value, onChange, disabled }) {
+  const refs = useRef([])
+  const digits = (value + '      ').slice(0, 6).split('')
+
+  const setDigit = (index, char) => {
+    const d = char.replace(/\D/g, '').slice(-1)
+    const arr = digits.map((c) => c.trim() || '')
+    arr[index] = d
+    onChange(arr.join('').slice(0, 6))
+    if (d && index < 5) refs.current[index + 1]?.focus()
+  }
+
+  const onKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !digits[index]?.trim() && index > 0) {
+      refs.current[index - 1]?.focus()
+    }
+  }
+
+  const onPaste = (e) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted) onChange(pasted)
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8 }} onPaste={onPaste}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <input
+          key={i}
+          ref={(el) => { refs.current[i] = el }}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          disabled={disabled}
+          value={digits[i]?.trim() || ''}
+          onChange={(e) => setDigit(i, e.target.value)}
+          onKeyDown={(e) => onKeyDown(i, e)}
+          aria-label={`Digit ${i + 1}`}
+          className="auth-otp-digit"
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function AuthForm() {
   const router = useRouter()
-  const [mode, setMode]         = useState('login')
-  const [name, setName]         = useState('')
-  const [email, setEmail]       = useState('')
+  const [mode, setMode] = useState('login')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
   const [showPass, setShowPass] = useState(false)
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+  const [loading, setLoading] = useState(false)
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const inputStyle = {
+    width: '100%',
+    padding: '11px 12px 11px 38px',
+    borderRadius: 10,
+    border: '1px solid var(--landing-border)',
+    background: 'var(--landing-bg-soft)',
+    color: 'var(--landing-text)',
+    fontSize: 13,
+    outline: 'none',
+    boxSizing: 'border-box',
+  }
+
+  const sendOtp = async () => {
+    if (mode !== 'register') return
+    setError('')
+    if (!email.trim()) {
+      setError('Pehle email daalo')
+      return
+    }
+    if (!name.trim()) {
+      setError('Pehle apna naam daalo')
+      return
+    }
+    setOtpLoading(true)
+    try {
+      const res = await fetch(`${API}/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'OTP email nahi bheja ja saka')
+      setOtpSent(true)
+      setOtp('')
+    } catch (err) {
+      setError(err.message)
+      setOtpSent(false)
+    } finally {
+      setOtpLoading(false)
+    }
+  }
 
   const submit = async (e) => {
     e.preventDefault()
     setError('')
+    if (mode === 'register') {
+      if (!otpSent) {
+        setError('Pehle Send OTP dabao — code aapki email par jayega')
+        return
+      }
+      if (otp.length !== 6) {
+        setError('6 digit OTP poora daalo')
+        return
+      }
+    }
     setLoading(true)
     try {
-      const body = mode === 'register' ? { name, email, password } : { email, password }
-      const res  = await fetch(`${API}/${mode}`, {
+      const body =
+        mode === 'register'
+          ? { name, email, password, otp }
+          : { email, password }
+      const res = await fetch(`${API}/${mode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -45,188 +166,185 @@ export default function AuthForm() {
     }
   }
 
-  const inputStyle = {
-    width: '100%',
-    padding: '10px 12px 10px 36px',
-    borderRadius: 10,
-    border: '1px solid var(--landing-border)',
-    background: 'var(--landing-bg-soft)',
-    color: 'var(--landing-text)',
-    fontSize: 13,
-    outline: 'none',
-    boxSizing: 'border-box',
+  const switchMode = (m) => {
+    setMode(m)
+    setError('')
+    setOtpSent(false)
+    setOtp('')
   }
 
   return (
-    <div
-      className="font-display"
-      style={{
-        minHeight: '100vh',
-        background: 'var(--landing-bg)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-      }}
-    >
-      <motion.div style={{ position: 'fixed', top: 20, right: 20, zIndex: 10 }} initial={false}>
-        <ThemeToggle />
-      </motion.div>
-      <Link
-        href="/"
-        style={{
-          position: 'fixed',
-          top: 20,
-          left: 20,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          color: 'var(--landing-muted)',
-          textDecoration: 'none',
-          fontSize: 13,
-          fontWeight: 500,
-          zIndex: 10,
-        }}
-      >
-        <ArrowLeft style={{ width: 16, height: 16 }} />
-        Back to Home
-      </Link>
+    <div className="auth-page font-display">
+      <aside className="auth-left">
+        <div className="auth-left-glow" aria-hidden />
+        <Link href="/" className="auth-back-link">
+          <ArrowLeft style={{ width: 16, height: 16 }} />
+          Back to Home
+        </Link>
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="landing-card"
-        style={{ width: '100%', maxWidth: 420, padding: 36, position: 'relative', zIndex: 1 }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+        <div className="auth-left-content">
           <BrandLogo size="lg" showWordmark showTagline />
-        </div>
-
-        {/* Tab switcher */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--landing-bg-soft)',
-          borderRadius: 12,
-          padding: 4,
-          marginBottom: 28,
-          border: '1px solid var(--landing-border)',
-        }}>
-          {['login', 'register'].map(m => (
-            <button
-              key={m}
-              onClick={() => { setMode(m); setError('') }}
-              style={{
-                flex: 1,
-                padding: '8px 0',
-                borderRadius: 9,
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-                transition: 'all 0.2s',
-                background: mode === m ? 'var(--landing-accent-soft)' : 'transparent',
-                color: mode === m ? 'var(--landing-accent)' : 'var(--landing-dim)',
-                boxShadow: mode === m ? 'inset 0 0 0 1px var(--landing-border-accent)' : 'none',
-              }}
-            >
-              {m === 'login' ? 'Sign In' : 'Sign Up'}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <AnimatePresence>
-            {mode === 'register' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                style={{ overflow: 'hidden' }}
-              >
-                <label style={{ fontSize: 12, color: 'var(--landing-muted)', display: 'block', marginBottom: 6 }}>Full Name</label>
-                <div style={{ position: 'relative' }}>
-                  <User style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: 'var(--landing-dim)' }} />
-                  <input
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="John Doe"
-                    required={mode === 'register'}
-                    style={inputStyle}
-                  />
+          <h1 className="auth-left-title">Build smarter with Optivix</h1>
+          <p className="auth-left-desc">
+            Your AI workspace for code, SEO, and live projects — all in one place.
+          </p>
+          <ul className="auth-features">
+            {FEATURES.map(({ icon: Icon, title, desc }) => (
+              <li key={title}>
+                <span className="auth-feature-icon">
+                  <Icon style={{ width: 18, height: 18, color: 'var(--landing-accent)' }} />
+                </span>
+                <div className="auth-feature-body">
+                  <strong>{title}</strong>
+                  <p className="auth-feature-desc">{desc}</p>
                 </div>
-              </motion.div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="auth-left-footer">© {new Date().getFullYear()} Optivix</p>
+      </aside>
+
+      <main className="auth-right">
+        <motion.div
+          key={mode}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="auth-form-panel"
+        >
+          <h2 className="auth-form-title">
+            {mode === 'login' ? 'Welcome back' : 'Create account'}
+          </h2>
+          <p className="auth-form-sub">
+            {mode === 'login'
+              ? 'Email aur password se sign in karo'
+              : 'Email verify karo, phir account banao'}
+          </p>
+
+          <form onSubmit={submit} className="auth-form">
+            <AnimatePresence mode="wait">
+              {mode === 'register' && (
+                <motion.div
+                  key="name"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <label className="auth-label">Full Name</label>
+                  <div style={{ position: 'relative' }}>
+                    <User className="auth-field-icon" />
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      required
+                      style={inputStyle}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div>
+              <label className="auth-label">Email</label>
+              <div style={{ position: 'relative' }}>
+                <Mail className="auth-field-icon" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (mode === 'register') {
+                      setOtpSent(false)
+                      setOtp('')
+                    }
+                  }}
+                  placeholder="you@example.com"
+                  required
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {mode === 'register' && (
+              <div>
+                <div className="auth-otp-head">
+                  <label className="auth-label" style={{ marginBottom: 0 }}>
+                    Email OTP
+                  </label>
+                  <button
+                    type="button"
+                    onClick={sendOtp}
+                    disabled={otpLoading}
+                    className="auth-otp-send"
+                  >
+                    {otpLoading ? 'Sending…' : otpSent ? 'Resend OTP' : 'Send OTP'}
+                  </button>
+                </div>
+                <OtpInput value={otp} onChange={setOtp} disabled={!otpSent} />
+                <p className="auth-otp-hint">
+                  {otpSent
+                    ? `6-digit code bheja gaya — ${email.trim()} ki inbox / spam check karo`
+                    : 'Send OTP dabao — code isi email par aayega jo upar likhi hai'}
+                </p>
+              </div>
             )}
-          </AnimatePresence>
 
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--landing-muted)', display: 'block', marginBottom: 6 }}>Email</label>
-            <div style={{ position: 'relative' }}>
-              <Mail style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: 'var(--landing-dim)' }} />
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                style={inputStyle}
-              />
+            <div>
+              <label className="auth-label">Password</label>
+              <div style={{ position: 'relative' }}>
+                <Lock className="auth-field-icon" />
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  required
+                  style={{ ...inputStyle, padding: '11px 40px 11px 38px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="auth-eye-btn"
+                  aria-label={showPass ? 'Hide password' : 'Show password'}
+                >
+                  {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--landing-muted)', display: 'block', marginBottom: 6 }}>Password</label>
-            <div style={{ position: 'relative' }}>
-              <Lock style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: 'var(--landing-dim)' }} />
-              <input
-                type={showPass ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Min. 6 characters"
-                required
-                style={{ ...inputStyle, padding: '10px 40px 10px 36px' }}
-              />
-              <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--landing-dim)', display: 'flex' }}>
-                {showPass ? <EyeOff style={{ width: 15, height: 15 }} /> : <Eye style={{ width: 15, height: 15 }} />}
-              </button>
-            </div>
-          </div>
+            {error && <div className="auth-error">{error}</div>}
 
-          {error && (
-            <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.3)', color: 'var(--landing-danger)', fontSize: 12 }}>
-              {error}
-            </div>
-          )}
+            <button type="submit" disabled={loading} className="btn-primary auth-submit">
+              {loading ? (
+                <>
+                  <Loader className="auth-spin" style={{ width: 16, height: 16 }} />
+                  Processing…
+                </>
+              ) : (
+                <>
+                  {mode === 'login' ? 'Sign In' : 'Create Account'}
+                  <ArrowRight style={{ width: 16, height: 16 }} />
+                </>
+              )}
+            </button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{
-              marginTop: 4,
-              width: '100%',
-              opacity: loading ? 0.6 : 1,
-              cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loading ? (
-              <><Loader style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />Processing...</>
-            ) : (
-              <>{mode === 'login' ? 'Sign In' : 'Create Account'}<ArrowRight style={{ width: 16, height: 16 }} /></>
-            )}
-          </button>
-        </form>
-
-        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--landing-dim)', marginTop: 20 }}>
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }} style={{ background: 'none', border: 'none', color: 'var(--landing-accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-            {mode === 'login' ? 'Sign Up' : 'Sign In'}
-          </button>
-        </p>
-      </motion.div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+          <p className="auth-switch">
+            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+            <button
+              type="button"
+              onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+              className="auth-switch-link"
+            >
+              {mode === 'login' ? 'Sign Up' : 'Sign In'}
+            </button>
+          </p>
+        </motion.div>
+      </main>
     </div>
   )
 }

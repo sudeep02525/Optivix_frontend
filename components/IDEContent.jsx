@@ -6,14 +6,102 @@ import Sidebar from '@/components/Sidebar.jsx'
 import AIAnalysisPanel from '@/components/AIAnalysisPanel.jsx'
 import Console from '@/components/Console.jsx'
 import CodeEditor from '@/components/CodeEditor.jsx'
+import { WELCOME_EDITOR_CODE, isSourceStructurallyBroken, repairBrokenJsxShell } from '@/lib/codeAnalyzer'
 import WebsiteAnalyzer from '@/components/WebsiteAnalyzer.jsx'
 import FreePeriodBanner from '@/components/FreePeriodBanner.jsx'
 import GitCloneModal from '@/components/GitCloneModal.jsx'
 import SelfHealModal from '@/components/SelfHealModal.jsx'
-import ThemeToggle from '@/components/ThemeToggle'
+import IDETerminal from '@/components/IDETerminal.jsx'
 import { useTheme } from '@/components/ThemeContext'
-import { Loader, Globe, Wrench, ChevronRight, Bug, Search, File, FileCheck, Menu, Shield, Zap } from 'lucide-react'
+import { Loader, Globe, Wrench, ChevronRight, Bug, Search, File, FileCheck, Menu, Shield, Zap, Play, X } from 'lucide-react'
 import BrandLogo from '@/components/BrandLogo'
+import { runCode } from '@/lib/codeRunner'
+import { getInstalledExtensions, isExtensionInstalled } from '@/lib/extensions'
+import { collectProjectFiles, writeProjectFile } from '@/lib/projectFiles'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+
+function authHeaders() {
+  const token = localStorage.getItem('nexus_token')
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' }
+}
+
+function languageFromFileName(fileName) {
+  const ext = fileName?.split('.').pop()?.toLowerCase()
+  const map = {
+    html: 'html', htm: 'html', css: 'css', json: 'json',
+    js: 'javascript', jsx: 'javascript', mjs: 'javascript',
+    ts: 'typescript', tsx: 'typescript', py: 'python',
+  }
+  return map[ext] || 'javascript'
+}
+
+async function fixFolderSeoViaApi(files) {
+  const token = localStorage.getItem('nexus_token')
+  if (!token) return null
+  try {
+    const res = await fetch(`${API_URL}/api/ai/fix-folder-seo`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        files: files.map((f) => ({ path: f.path, name: f.name, content: f.content })),
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+async function fixProjectViaApi(files, deepFix = true) {
+  const token = localStorage.getItem('nexus_token')
+  if (!token) return null
+  try {
+    const res = await fetch(`${API_URL}/api/ai/fix-project`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        files: files.map((f) => ({ path: f.path, name: f.name, content: f.content })),
+        deepFix,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+async function fixBugsViaApi(code, fileName, deepFix = false) {
+  const token = localStorage.getItem('nexus_token')
+  if (!token) return null
+  try {
+    const res = await fetch(`${API_URL}/api/ai/fix-bugs`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        code,
+        language: languageFromFileName(fileName),
+        fileName: fileName || '',
+        deepFix,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.fixedCode) return null
+    return {
+      fixed: data.fixedCode,
+      log: Array.isArray(data.log) ? data.log : ['✅ Fix applied'],
+      aiModel: data.aiModel,
+    }
+  } catch {
+    return null
+  }
+}
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 const createAnimationVariants = (prefersReducedMotion) => {
@@ -210,12 +298,32 @@ function isHtmlContent(code, fileName) {
 }
 
 // ── Bug Fixer ─────────────────────────────────────────────────────────────────
-function fixBugs(code) {
+function fixBugs(code, fileName = '') {
+  if (isSourceStructurallyBroken(code, fileName)) {
+    const repaired = repairBrokenJsxShell(code, fileName)
+    if (repaired !== code) {
+      return {
+        fixed: repaired,
+        log: [
+          '✅ Repaired component wrapper and imports',
+          '⚠️ Check import paths (e.g. react-router-dom) match your project',
+        ],
+      }
+    }
+    return {
+      fixed: code,
+      log: [
+        '⚠️ File is incomplete — could not auto-repair.',
+        '💡 Use Reload file, Ctrl+Z, or restore from git/backup.',
+      ],
+    }
+  }
+
   let fixed = code
   const log = []
 
   const varCount = (fixed.match(/^\s*var\s+/gm) || []).length
-  if (varCount > 0) { fixed = fixed.replace(/\bvar\b/g, 'let'); log.push(`✅ Converted ${varCount} var → let`) }
+  if (varCount > 0) { fixed = fixed.replace(/^\s*var\s+/gm, (m) => m.replace('var', 'let')); log.push(`✅ Converted ${varCount} var → let`) }
 
   const eqCount = (fixed.match(/([^=!])==([^=])/g) || []).length
   if (eqCount > 0) { fixed = fixed.replace(/([^=!])==([^=])/g, '$1===$2'); log.push(`✅ Fixed ${eqCount} == → ===`) }
@@ -282,21 +390,7 @@ const IDEPage = () => {
   const prefersReducedMotion = useReducedMotion()
   const variants = createAnimationVariants(prefersReducedMotion)
   
-  const [code, setCode] = useState(
-`// Welcome to Optivix 🚀
-//
-// Getting started:
-// 1. Click "Open Folder" to open your project
-// 2. Click "Fix" to fix bugs or SEO issues
-// 3. Click "Analyze Website" to audit any website's SEO
-//
-// Features (same as landing page):
-// ✨ Real-time bug & security scan (right panel)
-// 🐛 Fix → Fix Bugs (var, ==, XSS, eval, console)
-// 🔍 Fix → Fix SEO (meta, OG, schema — open .html)
-// 🌐 Analyze Website (top bar) — live URL SEO audit
-
-`)
+  const [code, setCode] = useState(WELCOME_EDITOR_CODE)
 
   const [isFixing, setIsFixing]           = useState(false)
   const [fixProgress, setFixProgress]     = useState(0)
@@ -313,6 +407,14 @@ const IDEPage = () => {
   const [authChecked, setAuthChecked]     = useState(false)
   const [sidebarOpen, setSidebarOpen]     = useState(false)
   const [isMobile, setIsMobile]           = useState(false)
+  const [isRunning, setIsRunning]         = useState(false)
+  const [runLog, setRunLog]               = useState([])
+  const [showPreview, setShowPreview]     = useState(false)
+  const [previewHtml, setPreviewHtml]     = useState('')
+  const [installedExtensions, setInstalledExtensions] = useState([])
+  const [editorThemeRevision, setEditorThemeRevision] = useState(0)
+  const [workspace, setWorkspace] = useState({ fileStructure: [], folderOpened: false, folderName: '' })
+  const [consolePanel, setConsolePanel] = useState('output')
   const codeRef = useRef(code)
   const { theme } = useTheme()
   const isDarkMode = theme === 'dark'
@@ -321,6 +423,10 @@ const IDEPage = () => {
   useEffect(() => {
     codeRef.current = code
   }, [code])
+
+  useEffect(() => {
+    setInstalledExtensions(getInstalledExtensions())
+  }, [])
 
   // Auth guard - redirect to /auth if not logged in
   useEffect(() => {
@@ -381,10 +487,31 @@ const IDEPage = () => {
   }
 
   const handleFileSelect = (fileName, fileContent, fileHandle) => {
-    console.log('handleFileSelect called:', fileName, fileContent?.substring(0, 50)) // Debug
+    const content = fileContent ?? `// ${fileName}\n// File is empty or could not be loaded`
     setSelectedFile(fileName)
     setCurrentFileHandle(fileHandle || null)
-    setCode(fileContent || `// ${fileName}\n// File is empty or could not be loaded`)
+    setCode(content)
+    codeRef.current = content
+    setFixLog([])
+  }
+
+  const reloadCurrentFile = async () => {
+    if (!currentFileHandle || !selectedFile) {
+      setSaveStatus('no-file')
+      setTimeout(() => setSaveStatus(''), 2000)
+      return
+    }
+    try {
+      setSaveStatus('saving')
+      const file = await currentFileHandle.getFile()
+      const content = await file.text()
+      setCode(content)
+      codeRef.current = content
+      setSaveStatus('reloaded')
+    } catch {
+      setSaveStatus('error')
+    }
+    setTimeout(() => setSaveStatus(''), 2000)
   }
 
   // ── Run fix (bugs or SEO) ──────────────────────────────────────────────────
@@ -396,13 +523,14 @@ const IDEPage = () => {
 
     const steps = type === 'seo'
       ? [
-          [15, '🔍 Scanning HTML structure...'],
-          [30, '🏷️ Checking meta tags...'],
-          [45, '📱 Mobile-friendliness check...'],
-          [60, '🔗 Checking Open Graph / Social tags...'],
-          [75, '📊 Checking Schema.org structured data...'],
-          [90, '🖼️ Checking image alt text...'],
-          [100, '✅ Applying SEO fixes...'],
+          [10, '📂 Scanning project folder...'],
+          [20, '🔍 Detecting website type & purpose...'],
+          [35, '🏷️ Title, description, keywords...'],
+          [50, '📱 Viewport, robots, canonical...'],
+          [65, '🔗 Open Graph + Twitter Card...'],
+          [80, '📊 Schema.org JSON-LD...'],
+          [90, '🖼️ Alt text + H1 + all HTML pages...'],
+          [100, '✅ Applying SEO to entire folder...'],
         ]
       : [
           [20, '🔍 Analyzing code structure...'],
@@ -413,27 +541,163 @@ const IDEPage = () => {
         ]
 
     for (const [progress, msg] of steps) {
-      await new Promise(r => setTimeout(r, 150))
+      await new Promise(r => setTimeout(r, type === 'bugs' && progress >= 60 ? 80 : 150))
       setFixProgress(progress)
       setFixLog(prev => [...prev, msg])
     }
 
     const currentCode = codeRef.current
-    const { fixed, log } = type === 'seo' ? fixSEO(currentCode, selectedFile) : fixBugs(currentCode)
+    let fixed = currentCode
+    let log = []
+
+    const deepFix = isExtensionInstalled('ai-deep-fix')
+    const folderReady = workspace.folderOpened && workspace.fileStructure?.length > 0
+
+    if (type === 'seo') {
+      let projectFiles = []
+      if (folderReady) {
+        setFixLog((prev) => [...prev, '📂 Reading all HTML files in folder...'])
+        projectFiles = await collectProjectFiles(workspace.fileStructure, 'seo')
+      }
+      if (projectFiles.length === 0 && (isHtmlContent(currentCode, selectedFile) || isHtmlFile(selectedFile))) {
+        projectFiles = [{ path: selectedFile || 'index.html', name: selectedFile || 'index.html', content: currentCode, handle: currentFileHandle }]
+      }
+
+      if (projectFiles.length > 0) {
+        const apiResult = await fixFolderSeoViaApi(projectFiles)
+          if (apiResult?.files?.length) {
+          let saved = 0
+          const extraLogs = []
+          for (const rf of apiResult.files) {
+            const orig = projectFiles.find((f) => f.path === rf.path || f.name === rf.name)
+            if (orig?.handle) {
+              const ok = await writeProjectFile(orig, rf.content)
+              if (ok) saved++
+            } else if (rf.name === 'index.html' || rf.path?.endsWith('index.html')) {
+              setSelectedFile('index.html')
+              fixed = rf.content
+              extraLogs.push('📝 New index.html — save to project root')
+            }
+            if (rf.path === selectedFile || rf.name === selectedFile) {
+              fixed = rf.content
+            }
+          }
+          if (!selectedFile && apiResult.files[0] && fixed === currentCode) fixed = apiResult.files[0].content
+          log = [
+            ...(apiResult.logs || []),
+            ...extraLogs,
+            `✅ ${apiResult.summary || 'Folder SEO complete'}`,
+            `💾 Saved ${saved} file(s) to disk`,
+            ...(apiResult.aiModel ? [`🤖 ${apiResult.aiModel}`] : []),
+          ]
+          if (apiResult.aiModel) setAnalysisSnapshot((s) => ({ ...s, aiModel: apiResult.aiModel }))
+        } else {
+          ;({ fixed, log } = fixSEO(currentCode, selectedFile))
+          log = ['ℹ️ Backend offline — local SEO rules', ...log]
+        }
+      } else {
+        ;({ fixed, log } = fixSEO(currentCode, selectedFile))
+        log = ['⚠️ Open a folder with .html files, or open an HTML file', ...log]
+      }
+    } else {
+      setFixLog((prev) => [...prev, '🤖 Full project code analysis...'])
+      if (deepFix) setFixLog((prev) => [...prev, '🧠 JSX + CSS + missing code will be added…'])
+
+      let projectFiles = []
+      if (folderReady) {
+        projectFiles = await collectProjectFiles(workspace.fileStructure, 'bugs')
+      }
+
+      if (projectFiles.length > 1) {
+        const apiResult = await fixProjectViaApi(projectFiles, deepFix)
+        if (apiResult?.files?.length) {
+          let saved = 0
+          for (const rf of apiResult.files) {
+            const orig = projectFiles.find((f) => f.path === rf.path || f.name === rf.name)
+            if (orig?.handle) {
+              const ok = await writeProjectFile(orig, rf.content)
+              if (ok) saved++
+            }
+            if (rf.path === selectedFile || rf.name === selectedFile) fixed = rf.content
+          }
+          log = [...(apiResult.logs || []), apiResult.summary || '', `💾 Saved ${saved} file(s)`]
+          if (apiResult.aiModel) setAnalysisSnapshot((s) => ({ ...s, aiModel: apiResult.aiModel }))
+        } else {
+          const apiResult = await fixBugsViaApi(currentCode, selectedFile, deepFix)
+          if (apiResult) {
+            fixed = apiResult.fixed
+            log = apiResult.log
+            if (apiResult.aiModel) setAnalysisSnapshot((s) => ({ ...s, aiModel: apiResult.aiModel }))
+          } else {
+            ;({ fixed, log } = fixBugs(currentCode, selectedFile))
+            log = ['ℹ️ Backend/Ollama unavailable — local rules only', ...log]
+          }
+        }
+      } else {
+        const apiResult = await fixBugsViaApi(currentCode, selectedFile, deepFix)
+        if (apiResult) {
+          fixed = apiResult.fixed
+          log = apiResult.log
+          if (apiResult.aiModel) setAnalysisSnapshot((s) => ({ ...s, aiModel: apiResult.aiModel }))
+        } else {
+          ;({ fixed, log } = fixBugs(currentCode, selectedFile))
+          log = ['ℹ️ Backend/Ollama unavailable — local rules only', ...log]
+        }
+      }
+    }
+
     setCode(fixed)
     codeRef.current = fixed
     setFixLog(prev => [...prev, '', '── Results ──', ...log])
 
-    // Auto-save if file is open
-    if (currentFileHandle) {
+    const truncated = fixed.length < currentCode.length * 0.65
+    const broken = isSourceStructurallyBroken(fixed, selectedFile)
+
+    if (currentFileHandle && !truncated && !broken) {
       try {
         const w = await currentFileHandle.createWritable()
-        await w.write(fixed); await w.close()
-        setSaveStatus('saved'); setTimeout(() => setSaveStatus(''), 2000)
+        await w.write(fixed)
+        await w.close()
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus(''), 2000)
       } catch { /* ignore */ }
+    } else if (currentFileHandle && (truncated || broken)) {
+      setFixLog((prev) => [
+        ...prev,
+        '⚠️ Not saved to disk — result would damage an incomplete file. Reload file or undo (Ctrl+Z).',
+      ])
     }
 
     setTimeout(() => { setIsFixing(false); setFixProgress(0) }, 1200)
+  }
+
+  const handleRunCode = async () => {
+    setIsRunning(true)
+    setRunLog(['▶ Starting…'])
+    const currentCode = codeRef.current
+    try {
+      const result = await runCode({
+        code: currentCode,
+        fileName: selectedFile || '',
+        installedExtensions,
+      })
+      setRunLog((prev) => [...prev, ...(result.logs || [])])
+      if (result.type === 'preview' && result.html) {
+        setPreviewHtml(result.html)
+        setShowPreview(true)
+        setRunLog((prev) => [...prev, '🖥 Preview opened below editor'])
+      } else if (result.output) {
+        setRunLog((prev) => [
+          ...prev,
+          result.type === 'error' ? `❌ ${result.output}` : '── Output ──',
+          ...(result.type === 'error' ? [] : [result.output]),
+        ])
+      }
+    } catch (e) {
+      setRunLog((prev) => [...prev, `❌ ${e.message || 'Run failed'}`])
+    } finally {
+      setIsRunning(false)
+    }
   }
 
   const accent = 'var(--landing-accent)'
@@ -505,7 +769,32 @@ const IDEPage = () => {
 
         {/* Right: Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <ThemeToggle />
+          <motion.button
+            variants={variants.button}
+            initial="idle"
+            whileHover="hover"
+            whileTap="tap"
+            onClick={handleRunCode}
+            disabled={isRunning || isFixing}
+            title="Run code (JS, HTML, CSS, JSON, Python with extension)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: `1px solid ${topBdr}`,
+              background: 'rgba(16,185,129,0.12)',
+              color: 'var(--landing-success)',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: isRunning || isFixing ? 'not-allowed' : 'pointer',
+              opacity: isRunning || isFixing ? 0.5 : 1,
+            }}
+          >
+            <Play style={{ width: 14, height: 14 }} />
+            <span className="ide-hide-mobile">{isRunning ? 'Running…' : 'Run'}</span>
+          </motion.button>
           {/* Analyze Website */}
           <motion.button
             variants={variants.button}
@@ -563,7 +852,7 @@ const IDEPage = () => {
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 13 }}>Fix Bugs</div>
-                      <div style={{ fontSize: 11, color: textDim }}>Fixes var, ===, eval, console.log</div>
+                      <div style={{ fontSize: 11, color: textDim }}>Full scan + AI adds missing code</div>
                     </div>
                   </motion.button>
 
@@ -582,7 +871,7 @@ const IDEPage = () => {
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 13 }}>Fix SEO</div>
-                      <div style={{ fontSize: 11, color: textDim }}>Fixes meta, og tags, schema, alt text</div>
+                      <div style={{ fontSize: 11, color: textDim }}>Whole folder — detects site & adds all SEO</div>
                     </div>
                   </motion.button>
 
@@ -625,6 +914,12 @@ const IDEPage = () => {
               handleFileSelect(name, content, handle)
               setSidebarOpen(false)
             }}
+            onExtensionsChange={(ids) => {
+              setInstalledExtensions(ids)
+              setEditorThemeRevision((n) => n + 1)
+            }}
+            installedExtensions={installedExtensions}
+            onWorkspaceChange={setWorkspace}
           />
         </motion.div>
 
@@ -672,15 +967,67 @@ const IDEPage = () => {
                     {selectedFile || 'Untitled'}
                   </span>
                 </div>
-                <div style={{ fontSize: 11, color: textDim }}>{languageLabel(selectedFile, code)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {selectedFile && currentFileHandle && (
+                    <button
+                      type="button"
+                      onClick={reloadCurrentFile}
+                      title="Reload full file from disk"
+                      style={{
+                        fontSize: 10,
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        border: `1px solid ${topBdr}`,
+                        background: 'transparent',
+                        color: textDim,
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Reload file
+                    </button>
+                  )}
+                  {saveStatus && (
+                    <span style={{ fontSize: 10, color: saveStatus === 'error' ? '#f87171' : accent }}>{saveStatus}</span>
+                  )}
+                  <span style={{ fontSize: 11, color: textDim }}>{languageLabel(selectedFile, code)}</span>
+                </div>
               </div>
               
-              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <CodeEditor code={code} setCode={setCode} isDarkMode={isDarkMode} />
+              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: showPreview ? '1 1 55%' : '1 1 auto', minHeight: 0, overflow: 'hidden' }}>
+                  <CodeEditor
+                    code={code}
+                    setCode={setCode}
+                    isDarkMode={isDarkMode}
+                    fileKey={selectedFile || 'welcome'}
+                    themeRevision={editorThemeRevision}
+                  />
+                </div>
+                {showPreview && (
+                  <div style={{ flex: '0 0 45%', minHeight: 120, borderTop: `1px solid ${topBdr}`, display: 'flex', flexDirection: 'column', background: 'var(--ide-hero-panel)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: textDim }}>Live preview</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPreview(false)}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: textDim, padding: 4 }}
+                        aria-label="Close preview"
+                      >
+                        <X style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                    <iframe
+                      title="Preview"
+                      srcDoc={previewHtml}
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                      style={{ flex: 1, width: '100%', border: 'none', background: '#fff' }}
+                    />
+                  </div>
+                )}
               </div>
             </motion.div>
 
-            {/* AI Analysis Panel - Glass Card */}
             <motion.div 
               variants={variants.aiPanel}
               className="ide-ai-panel"
@@ -699,37 +1046,7 @@ const IDEPage = () => {
                   : '0 8px 32px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.8)'
               }}
             >
-              {/* AI Panel Header */}
-              <div style={{ 
-                padding: '16px', 
-                borderBottom: `1px solid ${topBdr}`,
-                background: 'var(--ide-hero-panel)',
-                flexShrink: 0
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <motion.div
-                    animate={isFixing ? { rotate: 360 } : {}}
-                    transition={{ duration: 2, repeat: isFixing ? Infinity : 0, ease: 'linear' }}
-                    style={{ 
-                      width: 32, 
-                      height: 32, 
-                      borderRadius: 8, 
-                      background: accent,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Zap style={{ width: 16, height: 16, color: 'var(--landing-btn-text)' }} />
-                  </motion.div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: textCol }}>AI Analysis</div>
-                    <div style={{ fontSize: 11, color: textDim }}>Real-time insights</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              <div style={{ flex: 1, overflow: 'hidden', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                 <AIAnalysisPanel
                   code={code}
                   fileName={selectedFile}
@@ -784,11 +1101,42 @@ const IDEPage = () => {
                     }}
                   />
                 </div>
-                <div style={{ fontSize: 11, color: textDim }}>Output</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[
+                    { id: 'output', label: 'Output' },
+                    { id: 'terminal', label: 'Terminal' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setConsolePanel(tab.id)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        border: `1px solid ${consolePanel === tab.id ? 'var(--landing-accent)' : topBdr}`,
+                        background: consolePanel === tab.id ? 'var(--landing-accent-soft)' : 'transparent',
+                        color: consolePanel === tab.id ? 'var(--landing-accent)' : textDim,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              
+
               <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <Console isDarkMode={isDarkMode} fixLog={fixLog} isFixing={isFixing} />
+                {consolePanel === 'terminal' ? (
+                  <IDETerminal
+                    folderName={workspace.folderName}
+                    folderOpened={workspace.folderOpened}
+                    fileStructure={workspace.fileStructure}
+                  />
+                ) : (
+                  <Console isDarkMode={isDarkMode} fixLog={fixLog} isFixing={isFixing} runLog={runLog} isRunning={isRunning} />
+                )}
               </div>
             </div>
           </motion.div>

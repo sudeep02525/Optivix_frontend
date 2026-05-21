@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Globe, X, Download, Code, AlertCircle, CheckCircle, Zap, Shield, Search, TrendingUp, ChevronDown, Wrench } from 'lucide-react'
+import { X, Download, Code, AlertCircle, CheckCircle, Shield, TrendingUp, ChevronDown, Folder, File, FolderOpen, ChevronRight } from 'lucide-react'
+import BrandLogo from '@/components/BrandLogo'
+import { buildNextProjectFromHtml, buildProjectTree, downloadProjectZip } from '@/lib/htmlToNextProject'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
 
@@ -29,59 +31,48 @@ function detectWebsiteType(html) {
   return sorted[0][1] > 0 ? sorted[0][0] : 'General Website'
 }
 
-// ── Convert HTML to Next.js ──────────────────────────────────────────────────
-function convertToNextJS(html) {
-  let nextjs = html
-
-  // Convert class to className
-  nextjs = nextjs.replace(/\sclass=/g, ' className=')
-  
-  // Convert inline styles to React style objects
-  nextjs = nextjs.replace(/style="([^"]*)"/g, (match, styles) => {
-    const styleObj = styles.split(';')
-      .filter(s => s.trim())
-      .map(s => {
-        const [key, value] = s.split(':').map(x => x.trim())
-        const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
-        return `${camelKey}: '${value}'`
-      })
-      .join(', ')
-    return `style={{${styleObj}}}`
-  })
-
-  // Convert self-closing tags
-  nextjs = nextjs.replace(/<(img|br|hr|input|meta|link)([^>]*)>/gi, '<$1$2 />')
-
-  // Add 'use client' if interactive
-  if (/onclick|onchange|onsubmit/i.test(nextjs)) {
-    nextjs = `'use client'\n\n` + nextjs
+function ProjectTree({ node, depth, selectedPath, onSelect, expanded, onToggle }) {
+  if (node.type === 'file') {
+    const active = node.path === selectedPath
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(node.path, node.content)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+          padding: `4px 8px 4px ${8 + depth * 14}px`, border: 'none', borderRadius: 6,
+          background: active ? 'var(--landing-accent-soft)' : 'transparent',
+          color: active ? 'var(--landing-accent)' : 'var(--ide-text-muted)',
+          fontSize: 11, cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <File style={{ width: 12, height: 12, flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</span>
+      </button>
+    )
   }
-
-  // Wrap in export default
-  nextjs = `export default function Page() {\n  return (\n    <>\n${nextjs}\n    </>\n  )\n}`
-
-  return nextjs
-}
-
-function fixHtmlClient(html) {
-  let fixed = html
-  if (!/<title[\s>]/i.test(fixed)) {
-    fixed = fixed.replace(/<head([^>]*)>/i, `<head$1>\n  <title>Page Title - Your Website</title>`)
-  }
-  if (!/<meta[^>]+name=["']description["']/i.test(fixed)) {
-    fixed = fixed.replace(/<\/title>/i, `</title>\n  <meta name="description" content="Your page description (150-160 characters)." />`)
-  }
-  if (!/<meta[^>]+name=["']viewport["']/i.test(fixed)) {
-    fixed = fixed.replace(/<\/title>/i, `</title>\n  <meta name="viewport" content="width=device-width, initial-scale=1.0" />`)
-  }
-  if (!/<meta[^>]+charset/i.test(fixed)) {
-    fixed = fixed.replace(/<head([^>]*)>/i, `<head$1>\n  <meta charset="UTF-8" />`)
-  }
-  fixed = fixed.replace(/<img(?![^>]*\balt=)([^>]*)>/gi, '<img$1 alt="Describe this image">')
-  if (/<html(?![^>]*\blang=)/i.test(fixed)) {
-    fixed = fixed.replace(/<html([^>]*)>/i, '<html$1 lang="en">')
-  }
-  return fixed
+  const folderKey = node.path || node.name
+  const isOpen = expanded.has(folderKey)
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => onToggle(folderKey)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 4,
+          padding: `4px 8px 4px ${8 + depth * 14}px`, border: 'none', background: 'transparent',
+          color: 'var(--ide-text-muted)', fontSize: 11, cursor: 'pointer', textAlign: 'left',
+        }}
+      >
+        <ChevronRight style={{ width: 10, height: 10, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+        {isOpen ? <FolderOpen style={{ width: 12, height: 12 }} /> : <Folder style={{ width: 12, height: 12 }} />}
+        <span>{node.name}/</span>
+      </button>
+      {isOpen && node.children?.map((ch) => (
+        <ProjectTree key={ch.path || ch.name + depth} node={ch} depth={depth + 1} selectedPath={selectedPath} onSelect={onSelect} expanded={expanded} onToggle={onToggle} />
+      ))}
+    </div>
+  )
 }
 
 // ── Analyze fetched HTML ──────────────────────────────────────────────────────
@@ -190,12 +181,43 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
   const [step, setStep]             = useState('')
   const [result, setResult]         = useState(null)
   const [htmlCode, setHtmlCode]     = useState('')
-  const [nextjsCode, setNextjsCode] = useState('')
+  const [projectFiles, setProjectFiles] = useState([])
+  const [projectTree, setProjectTree] = useState(null)
+  const [selectedFilePath, setSelectedFilePath] = useState('app/page.jsx')
+  const [previewCode, setPreviewCode] = useState('')
   const [activeTab, setActiveTab]   = useState('overview')
-  const [fixingSeo, setFixingSeo]   = useState(false)
   const [auditUrl, setAuditUrl]     = useState('')
   const [error, setError]           = useState('')
   const [expandedIssue, setExpandedIssue] = useState(null)
+  const [treeExpanded, setTreeExpanded] = useState(new Set())
+  const [downloadingZip, setDownloadingZip] = useState(false)
+
+  useEffect(() => {
+    if (!projectFiles.length) return
+    const keys = new Set()
+    for (const f of projectFiles) {
+      const parts = f.path.split('/')
+      let acc = ''
+      for (let i = 0; i < parts.length - 1; i++) {
+        acc = acc ? `${acc}/${parts[i]}` : parts[i]
+        keys.add(acc)
+      }
+    }
+    setTreeExpanded(keys)
+  }, [projectFiles])
+
+  const applyProjectFromHtml = (html, target, auditResult) => {
+    const { files } = buildNextProjectFromHtml(html, target)
+    setHtmlCode(html)
+    setProjectFiles(files)
+    setProjectTree(buildProjectTree(files))
+    const defaultPath = files.find((f) => f.path === 'app/page.jsx')?.path || files[0]?.path
+    setSelectedFilePath(defaultPath)
+    setPreviewCode(files.find((f) => f.path === defaultPath)?.content || '')
+    setAuditUrl(target)
+    setResult(auditResult)
+    setActiveTab('project')
+  }
 
   const analyze = async () => {
     if (!url.trim()) return
@@ -204,11 +226,11 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
 
     try {
       const steps = [
-        [20, 'Connecting to website...'],
-        [40, 'Fetching HTML content...'],
-        [60, 'Analyzing SEO tags...'],
-        [80, 'Checking performance & security...'],
-        [95, 'Generating report...'],
+        [15, 'Connecting to website...'],
+        [35, 'Fetching HTML source...'],
+        [55, 'SEO & security audit...'],
+        [75, 'Building Next.js folder (app, components)...'],
+        [95, 'Packaging project files...'],
       ]
       for (const [p, s] of steps) {
         setProgress(p); setStep(s)
@@ -227,10 +249,10 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
           const data = await res.json()
           if (res.ok && data.html) {
             setProgress(100); setStep('Done!')
-            setAuditUrl(data.url || target)
-            setHtmlCode(data.html)
-            setNextjsCode(convertToNextJS(data.html))
-            setResult({ issues: data.issues, suggestions: data.suggestions, score: data.score, websiteType: data.websiteType, stats: data.stats })
+            applyProjectFromHtml(data.html, data.url || target, {
+              issues: data.issues, suggestions: data.suggestions, score: data.score,
+              websiteType: data.websiteType, stats: data.stats,
+            })
             setLoading(false)
             return
           }
@@ -283,10 +305,7 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
       }
 
       setProgress(100); setStep('Done!')
-      setHtmlCode(html)
-      setNextjsCode(convertToNextJS(html))
-      setAuditUrl(target)
-      setResult(analyzeHTML(html, target))
+      applyProjectFromHtml(html, target, analyzeHTML(html, target))
     } catch (err) {
       setError(err.message || 'Failed to analyze website.')
     } finally {
@@ -303,13 +322,20 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
     a.click()
   }
 
-  const saveNextJS = () => {
-    if (!nextjsCode) return
-    const blob = new Blob([nextjsCode], { type: 'text/javascript' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = 'page.jsx'
-    a.click()
+  const handleDownloadZip = async () => {
+    if (!projectFiles.length) return
+    setDownloadingZip(true)
+    await downloadProjectZip(projectFiles, 'optivix-nextjs-site')
+    setDownloadingZip(false)
+  }
+
+  const toggleTree = (key) => {
+    setTreeExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   const sevColor = { critical: '#f87171', high: '#fb923c', medium: '#facc15', low: '#60a5fa' }
@@ -319,36 +345,6 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
   const scoreColor = result
     ? result.score >= 80 ? '#4ade80' : result.score >= 60 ? '#facc15' : result.score >= 40 ? '#fb923c' : '#f87171'
     : '#5b9cf5'
-
-  const applySeoFix = async () => {
-    if (!htmlCode) return
-    setFixingSeo(true)
-    const token = localStorage.getItem('nexus_token') || localStorage.getItem('token')
-    try {
-      if (token) {
-        const res = await fetch(`${API_URL}/api/ai/website-fix-seo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ html: htmlCode }),
-        })
-        const data = await res.json()
-        if (res.ok && data.fixedHtml) {
-          setHtmlCode(data.fixedHtml)
-          setNextjsCode(convertToNextJS(data.fixedHtml))
-          setResult(analyzeHTML(data.fixedHtml, auditUrl || url))
-          onOpenInEditor?.(data.fixedHtml)
-          return
-        }
-      }
-      const fixed = fixHtmlClient(htmlCode)
-      setHtmlCode(fixed)
-      setNextjsCode(convertToNextJS(fixed))
-      setResult(analyzeHTML(fixed, auditUrl || url))
-      onOpenInEditor?.(fixed)
-    } finally {
-      setFixingSeo(false)
-    }
-  }
 
   const shellBg = 'var(--ide-surface)'
   const border = 'var(--ide-border)'
@@ -364,18 +360,13 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
         exit={{ opacity: 0, scale: 0.96 }}
         style={{ background: shellBg, border: `1px solid ${border}`, borderRadius: 16, width: '100%', maxWidth: 960, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--landing-shadow-lg)' }}
       >
-        {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(91,156,245,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#5b9cf5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Globe style={{ width: 20, height: 20, color: '#0c0c0c' }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#5b9cf5' }}>Website Analyzer</div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Full SEO, performance & security audit + source code</div>
-            </div>
+        <div style={{ padding: '14px 18px', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, background: 'var(--ide-hero-panel)' }}>
+          <BrandLogo size="sm" showWordmark showTagline={false} />
+          <div style={{ flex: 1, marginLeft: 12, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: accent }}>Website Analyzer</div>
+            <div style={{ fontSize: 11, color: textMuted }}>SEO audit · no auto-fix · full Next.js project export</div>
           </div>
-          <button onClick={onClose} style={{ padding: 6, borderRadius: 8, border: 'none', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', display: 'flex' }}>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ padding: 6, borderRadius: 8, border: `1px solid ${border}`, background: 'transparent', cursor: 'pointer', color: textMuted, display: 'flex' }}>
             <X style={{ width: 18, height: 18 }} />
           </button>
         </div>
@@ -388,12 +379,12 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
             onKeyDown={e => e.key === 'Enter' && !loading && analyze()}
             placeholder="Enter website URL (e.g., https://example.com)"
             disabled={loading}
-            style={{ flex: 1, padding: '9px 14px', borderRadius: 10, border: '1px solid rgba(91,156,245,0.2)', background: 'rgba(91,156,245,0.05)', color: '#e6edf3', fontSize: 13, outline: 'none' }}
+            style={{ flex: 1, padding: '9px 14px', borderRadius: 10, border: `1px solid ${border}`, background: 'var(--ide-hero-panel)', color: textMain, fontSize: 13, outline: 'none' }}
           />
           <button
             onClick={analyze}
             disabled={loading || !url.trim()}
-            style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: loading ? 'rgba(91,156,245,0.3)' : '#5b9cf5', color: '#0c0c0c', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+            style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: loading ? 'var(--landing-accent-soft)' : accent, color: 'var(--landing-btn-text)', fontSize: 13, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
           >
             {loading ? `${progress}%` : 'Analyze'}
           </button>
@@ -419,10 +410,12 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
         {/* Content */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {!result && !loading && !error && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'rgba(255,255,255,0.3)', gap: 12 }}>
-              <Globe style={{ width: 48, height: 48 }} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Ready to Analyze</div>
-              <div style={{ fontSize: 12, textAlign: 'center', maxWidth: 340 }}>Enter any website URL and click Analyze to get a full SEO, performance, security audit and the complete source code.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16, padding: 24 }}>
+              <BrandLogo size="lg" showWordmark />
+              <div style={{ fontSize: 15, fontWeight: 700, color: textMain }}>Ready to Analyze</div>
+              <div style={{ fontSize: 12, textAlign: 'center', maxWidth: 360, color: textMuted, lineHeight: 1.55 }}>
+                Enter a URL — we audit SEO, security & performance (read-only). You get the original HTML plus a full <strong>Next.js</strong> folder: <code style={{ fontSize: 11 }}>app/</code>, <code style={{ fontSize: 11 }}>components/</code>, CSS, and config files.
+              </div>
             </div>
           )}
 
@@ -434,12 +427,13 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
                   { id: 'overview', label: 'Overview', icon: Shield },
                   { id: 'issues', label: `Issues (${result.issues.length})`, icon: AlertCircle },
                   { id: 'suggestions', label: `Tips (${result.suggestions.length})`, icon: TrendingUp },
+                  { id: 'project', label: `Next.js (${projectFiles.length})`, icon: Folder },
                   { id: 'code', label: 'HTML', icon: Code },
                 ].map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: activeTab === tab.id ? '#5b9cf5' : 'rgba(255,255,255,0.4)', borderBottom: activeTab === tab.id ? '2px solid #5b9cf5' : '2px solid transparent', marginBottom: -1 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: activeTab === tab.id ? accent : textMuted, borderBottom: activeTab === tab.id ? `2px solid ${accent}` : '2px solid transparent', marginBottom: -1 }}
                   >
                     <tab.icon style={{ width: 13, height: 13 }} />
                     {tab.label}
@@ -454,12 +448,12 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
               </div>
 
               {/* Website Type Badge */}
-              <div style={{ padding: '10px 16px', background: 'rgba(91,156,245,0.05)', borderBottom: '1px solid rgba(91,156,245,0.08)', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                <Globe style={{ width: 14, height: 14, color: '#5b9cf5' }} />
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Website Type:</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#5b9cf5' }}>{result.websiteType}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
-                  {result.stats.htmlSize} · {result.stats.hasHTTPS ? '🔒 HTTPS' : '⚠️ HTTP'}
+              <div style={{ padding: '8px 16px', background: 'var(--landing-accent-soft)', borderBottom: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: textMuted }}>Detected:</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: accent }}>{result.websiteType}</span>
+                <span style={{ fontSize: 11, color: textMuted }}>· Audit only (no fix applied)</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: textMuted }}>
+                  {result.stats.htmlSize} · {result.stats.hasHTTPS ? 'HTTPS' : 'HTTP'}
                 </span>
               </div>
 
@@ -486,12 +480,12 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
                       ))}
                     </div>
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={applySeoFix} disabled={fixingSeo} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: accent, color: 'var(--landing-btn-text)', fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Wrench style={{ width: 14, height: 14 }} /> {fixingSeo ? 'Fixing SEO…' : 'Apply SEO fixes'}
+                      <button type="button" onClick={() => setActiveTab('project')} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: accent, color: 'var(--landing-btn-text)', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                        View Next.js project
                       </button>
                       {onOpenInEditor && (
                         <button type="button" onClick={() => onOpenInEditor(htmlCode)} style={{ padding: '10px 16px', borderRadius: 10, border: `1px solid ${border}`, background: 'transparent', color: textMain, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
-                          Open HTML in editor
+                          Open raw HTML in IDE
                         </button>
                       )}
                     </div>
@@ -519,11 +513,8 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
                         </div>
                         {expandedIssue === i && (
                           <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${sevBdr[issue.sev]}` }}>
-                            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 8, lineHeight: 1.5 }}>{issue.desc}</p>
-                            <div style={{ fontSize: 12, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: '7px 10px', borderLeft: `2px solid ${sevColor[issue.sev]}` }}>
-                              <span style={{ color: 'rgba(255,255,255,0.4)' }}>💡 Fix: </span>
-                              <span style={{ color: 'rgba(255,255,255,0.75)' }}>{issue.fix}</span>
-                            </div>
+                            <p style={{ fontSize: 12, color: textMuted, lineHeight: 1.5 }}>{issue.desc}</p>
+                            <p style={{ fontSize: 10, color: textMuted, marginTop: 8, opacity: 0.85 }}>Use IDE Fix SEO on your own project to repair — this tool only reports.</p>
                           </div>
                         )}
                       </div>
@@ -565,28 +556,39 @@ export default function WebsiteAnalyzer({ onClose, isDarkMode = true, onOpenInEd
                   </div>
                 )}
 
-                {/* Next.js Code tab */}
-                {activeTab === 'nextjs' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <Zap style={{ width: 14, height: 14, color: '#5b9cf5' }} />
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Converted to Next.js format</span>
+                {activeTab === 'project' && projectTree && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(160px, 220px) 1fr', gap: 12, minHeight: 360 }}>
+                    <div style={{ border: `1px solid ${border}`, borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--ide-hero-panel)' }}>
+                      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${border}`, fontSize: 11, fontWeight: 700, color: textMuted }}>Project tree</div>
+                      <div style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
+                        {(projectTree.children || []).map((ch) => (
+                          <ProjectTree
+                            key={ch.path || ch.name}
+                            node={ch}
+                            depth={0}
+                            selectedPath={selectedFilePath}
+                            onSelect={(path, content) => { setSelectedFilePath(path); setPreviewCode(content) }}
+                            expanded={treeExpanded}
+                            onToggle={toggleTree}
+                          />
+                        ))}
                       </div>
                       <button
-                        onClick={saveNextJS}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(91,156,245,0.3)', background: 'rgba(91,156,245,0.1)', color: '#5b9cf5', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                        type="button"
+                        onClick={handleDownloadZip}
+                        disabled={downloadingZip}
+                        style={{ margin: 8, padding: '8px 10px', borderRadius: 8, border: 'none', background: accent, color: 'var(--landing-btn-text)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                       >
-                        <Download style={{ width: 13, height: 13 }} />
-                        Save as page.jsx
+                        <Download style={{ width: 12, height: 12 }} />
+                        {downloadingZip ? 'Zipping…' : 'Download .zip'}
                       </button>
                     </div>
-                    <div style={{ background: 'rgba(91,156,245,0.05)', border: '1px solid rgba(91,156,245,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>
-                      💡 <strong>Note:</strong> This is an automatic conversion. You may need to adjust imports, add proper Next.js Image components, and handle dynamic content.
+                    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                      <div style={{ fontSize: 11, color: textMuted, marginBottom: 6, fontFamily: 'monospace' }}>{selectedFilePath}</div>
+                      <pre style={{ flex: 1, margin: 0, background: 'var(--ide-bg)', border: `1px solid ${border}`, borderRadius: 10, padding: 12, fontSize: 10, color: textMain, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.55, maxHeight: 420 }}>
+                        {previewCode}
+                      </pre>
                     </div>
-                    <pre style={{ background: '#0c0c0c', border: '1px solid rgba(91,156,245,0.1)', borderRadius: 10, padding: 14, fontSize: 11, color: '#e6edf3', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 400, overflowY: 'auto', fontFamily: '"JetBrains Mono", "Fira Code", monospace', lineHeight: 1.6 }}>
-                      {nextjsCode}
-                    </pre>
                   </div>
                 )}
               </div>

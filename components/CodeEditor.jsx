@@ -2,6 +2,15 @@
 
 import { useRef, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
+import { monacoLanguageFromFileName } from '@/lib/codeAnalyzer'
+import { getActiveEditorTheme } from '@/lib/extensions'
+
+function resolveMonacoTheme(isDarkMode) {
+  const ext = getActiveEditorTheme()
+  if (ext === 'one-dark') return 'nexus-dark'
+  if (ext === 'github-light') return 'nexus-light'
+  return isDarkMode !== false ? 'nexus-dark' : 'nexus-light'
+}
 
 let themesRegistered = false
 
@@ -138,35 +147,63 @@ function registerThemes(monaco) {
   })
 }
 
-export default function CodeEditor({ code, setCode, isDarkMode }) {
+/** Apply parent-driven code changes without wiping Monaco undo history. */
+function applyExternalCode(editor, nextCode) {
+  const model = editor.getModel()
+  if (!model) return
+  const current = editor.getValue()
+  if (current === nextCode) return
+
+  editor.pushUndoStop()
+  editor.executeEdits('optivix-sync', [
+    {
+      range: model.getFullModelRange(),
+      text: nextCode,
+      forceMoveMarkers: true,
+    },
+  ])
+  editor.pushUndoStop()
+}
+
+export default function CodeEditor({ code, setCode, isDarkMode, fileKey = 'workspace', themeRevision = 0 }) {
   const monacoRef = useRef(null)
   const editorRef = useRef(null)
-  const dark = isDarkMode !== false
+  const lastEmittedRef = useRef(code)
+  const monacoTheme = resolveMonacoTheme(isDarkMode)
 
-  // Sync external code changes (e.g. Fix Bugs / Fix SEO) into Monaco
+  useEffect(() => {
+    lastEmittedRef.current = code
+  }, [fileKey])
+
+  // Fix Bugs / open file / etc. — sync without setValue (preserves Ctrl+Z)
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
-    const current = editor.getValue()
-    if (current !== code) {
-      editor.setValue(code)
-    }
+    if (lastEmittedRef.current === code) return
+    applyExternalCode(editor, code)
+    lastEmittedRef.current = code
   }, [code])
 
-  // Switch theme WITHOUT remounting the editor
   useEffect(() => {
     if (monacoRef.current) {
-      monacoRef.current.editor.setTheme(dark ? 'nexus-dark' : 'nexus-light')
+      monacoRef.current.editor.setTheme(monacoTheme)
     }
-  }, [dark])
+  }, [monacoTheme, themeRevision])
+
+  const handleChange = (value) => {
+    if (value === undefined) return
+    lastEmittedRef.current = value
+    setCode(value)
+  }
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <Editor
+        key={fileKey}
         height="100%"
-        defaultLanguage="javascript"
-        value={code}
-        onChange={(v) => v !== undefined && setCode(v)}
+        defaultLanguage={monacoLanguageFromFileName(fileKey)}
+        defaultValue={code}
+        onChange={handleChange}
         options={{
           minimap:                    { enabled: false },
           fontSize:                   14,
@@ -209,12 +246,17 @@ export default function CodeEditor({ code, setCode, isDarkMode }) {
           editorRef.current = editor
           monacoRef.current = monaco
           registerThemes(monaco)
-          monaco.editor.setTheme(dark ? 'nexus-dark' : 'nexus-light')
+          monaco.editor.setTheme(monacoTheme)
+          const model = editor.getModel()
+          if (model) {
+            monaco.editor.setModelLanguage(model, monacoLanguageFromFileName(fileKey))
+          }
+          if (editor.getValue() !== code) {
+            editor.setValue(code)
+          }
+          lastEmittedRef.current = code
         }}
       />
     </div>
   )
 }
-
-
-

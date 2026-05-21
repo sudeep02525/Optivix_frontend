@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Search, Zap, Settings, ChevronDown, Plus, Folder, FolderOpen, File, AlertCircle, LogOut, Sun, Moon, LayoutDashboard } from 'lucide-react'
+import { FileText, Search, Settings, ChevronDown, Plus, Folder, FolderOpen, File, AlertCircle, LogOut, Sun, Moon, LayoutDashboard, Package } from 'lucide-react'
 import IDEDashboard from '@/components/IDEDashboard'
+import ExtensionsPanel from '@/components/ExtensionsPanel'
 import { useTheme } from '@/components/ThemeContext'
-
+import { getTerminalCwd, setTerminalCwd } from '@/lib/terminal'
 const getFileColor = (name) => {
   const ext = name.split('.').pop()?.toLowerCase()
   switch (ext) {
@@ -18,7 +19,7 @@ const getFileColor = (name) => {
   }
 }
 
-export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitClone, analysisSnapshot, isFixing }) {
+export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitClone, analysisSnapshot, isFixing, onExtensionsChange, installedExtensions = [], onWorkspaceChange }) {
   const { theme, toggleTheme } = useTheme()
   const [expandedFolders, setExpandedFolders] = useState([])
   const [folderOpened, setFolderOpened] = useState(false)
@@ -30,11 +31,20 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitCl
   const [searchGlob, setSearchGlob] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [searching, setSearching] = useState(false)
+  const [explorerFilter, setExplorerFilter] = useState('')
+  const [devPath, setDevPath] = useState('')
+  const showExplorerFilter = installedExtensions.includes('explorer-filter')
 
   useEffect(() => {
     const stored = localStorage.getItem('nexus_user')
     if (stored) setUser(JSON.parse(stored))
+    setDevPath(getTerminalCwd())
   }, [])
+
+  useEffect(() => {
+    const folderName = fileStructure[0]?.name || ''
+    onWorkspaceChange?.({ fileStructure, folderOpened, folderName })
+  }, [fileStructure, folderOpened, onWorkspaceChange])
 
   const handleLogout = () => {
     localStorage.removeItem('nexus_token')
@@ -118,8 +128,21 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitCl
     { id: 'explorer', icon: FileText,  label: 'Explorer'   },
     { id: 'search',   icon: Search,    label: 'Search'     },
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { id: 'extensions', icon: Package, label: 'Extensions' },
     { id: 'settings', icon: Settings,  label: 'Settings'   },
   ]
+
+  const filterTreeItems = (items) => {
+    if (!showExplorerFilter || !explorerFilter.trim()) return items
+    return items.flatMap((item) => {
+      if (item.type === 'folder') {
+        const children = filterTreeItems(item.children || [])
+        if (children.length > 0) return [{ ...item, children }]
+        return []
+      }
+      return globMatch(item.name, explorerFilter) ? [item] : []
+    })
+  }
 
   const readDirectory = async (dirHandle, path = '') => {
     const entries = []
@@ -339,7 +362,27 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitCl
                     <button title="Open Folder" onClick={handleOpenFolder} style={{ padding: 4, borderRadius: 4, border: 'none', background: 'none', cursor: 'pointer', color: textDim }}><FolderOpen style={{ width: 13, height: 13 }} /></button>
                   </div>
                 </div>
-                <div>{renderFileTree(fileStructure)}</div>
+                {showExplorerFilter && (
+                  <input
+                    type="text"
+                    value={explorerFilter}
+                    onChange={(e) => setExplorerFilter(e.target.value)}
+                    placeholder="Filter (*.js, *.tsx)"
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      marginBottom: 8,
+                      borderRadius: 6,
+                      fontSize: 11,
+                      border: `1px solid ${border}`,
+                      background: 'var(--ide-hero-panel)',
+                      color: textMain,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                )}
+                <div>{renderFileTree(filterTreeItems(fileStructure))}</div>
               </>
             )}
           </div>
@@ -450,6 +493,10 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitCl
           />
         )}
 
+        {activeTab === 'extensions' && (
+          <ExtensionsPanel onExtensionsChange={onExtensionsChange} />
+        )}
+
         {activeTab === 'settings' && (
           <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Settings</div>
@@ -524,6 +571,36 @@ export default function Sidebar({ activeTab, setActiveTab, onFileSelect, onGitCl
                   Dark
                 </button>
               </div>
+            </div>
+
+            <div style={{ height: 1, background: border }} />
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: textMid, display: 'block', marginBottom: 6 }}>
+                Terminal (optional override)
+              </label>
+              <input
+                type="text"
+                value={devPath}
+                onChange={(e) => {
+                  setDevPath(e.target.value)
+                  setTerminalCwd(e.target.value)
+                }}
+                placeholder="Auto when you open a folder"
+                style={{
+                  width: '100%',
+                  padding: '7px 10px',
+                  borderRadius: 8,
+                  border: `1px solid ${border}`,
+                  background: 'var(--ide-hero-panel)',
+                  color: textMain,
+                  fontSize: 11,
+                  boxSizing: 'border-box',
+                }}
+              />
+              <p style={{ fontSize: 10, color: textDim, marginTop: 4, lineHeight: 1.4 }}>
+                Open a folder in Explorer — files sync to terminal automatically. Override path only if needed.
+              </p>
             </div>
 
             <div style={{ height: 1, background: border }} />
